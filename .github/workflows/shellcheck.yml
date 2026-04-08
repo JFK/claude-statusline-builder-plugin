@@ -51,7 +51,9 @@ jobs:
             | CLAUDE_STATUSLINE_FORCE_MODE=minimal bash scripts/statusline-command.sh)
           echo "$out"
           lines=$(echo "$out" | wc -l)
-          test "$lines" -eq 2 || { echo "FAIL: minimal mode produced $lines lines, expected 2"; exit 1; }
+          # v0.1.3+: minimal mode is identity + model + rate-limit row + border = 4 lines
+          # when the fixture carries rate_limits (preview-fixture.json does).
+          test "$lines" -eq 4 || { echo "FAIL: minimal mode produced $lines lines, expected 4"; exit 1; }
 
       - name: Render no-rate-limits fixture (non-claude.ai user)
         run: |
@@ -81,11 +83,11 @@ jobs:
           out=$(cat scripts/preview-fixture.json | bash scripts/statusline-command.sh)
           echo "$out"
           lines=$(echo "$out" | wc -l)
-          test "$lines" -eq 2 || { echo "FAIL: flag-file minimal mode produced $lines lines, expected 2"; exit 1; }
+          test "$lines" -eq 4 || { echo "FAIL: flag-file minimal mode produced $lines lines, expected 4"; exit 1; }
           rm -f ~/.claude/cache/statusline-minimal
           out=$(cat scripts/preview-fixture.json | bash scripts/statusline-command.sh)
           lines=$(echo "$out" | wc -l)
-          test "$lines" -gt 2 || { echo "FAIL: flag absent should produce >2 lines, got $lines"; exit 1; }
+          test "$lines" -gt 4 || { echo "FAIL: flag absent should produce >4 lines, got $lines"; exit 1; }
           echo "PASS"
 
       - name: Install/uninstall sandbox (round-trip)
