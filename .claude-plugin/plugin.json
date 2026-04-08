@@ -23,6 +23,5 @@
     "news",
     "developer-experience"
   ],
-  "commands": ["./commands/"],
-  "agents": ["./agents/"]
+  "commands": ["./commands/"]
 }
