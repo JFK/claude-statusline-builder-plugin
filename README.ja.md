@@ -60,10 +60,10 @@ jfk@laptop:demo-project (main)
 | 変数 | デフォルト | 備考 |
 |---|---|---|
 | `STATUSLINE_TZ` | *(システム)* | IANA TZ 名 |
-| `STATUSLINE_TZ_LABEL` | *(空)* | リセット時刻のサフィックス |
+| `STATUSLINE_TZ_LABEL` | *(自動)* | リセット/時計行のサフィックス。未設定なら `date +%Z` で自動検出（`JST` 等）。`""` を明示すると抑制 |
 | `STATUSLINE_LANG` | `en` | `ja` で 月火水木金土日 にマップ |
 | `STATUSLINE_DATETIME_FMT` | `%Y-%m-%d (%a) %H:%M` | strftime |
-| `STATUSLINE_USER_HOST` | `$USER@$(hostname -s)` | 行1のアイデンティティ |
+| `STATUSLINE_USER_HOST` | `$USER@$(hostname -s)` | 行1のアイデンティティ。ユーザー名とホスト名が一致する場合は `$USER` のみに短縮 |
 | `WEATHER_ENABLED` | `1` | `0` で天気行無効 |
 | `WEATHER_COORDS` | *(空)* | `lat,lon`。空 = wttr.in IP 検出 |
 | `WEATHER_LANG` | `en` | wttr.in 言語コード |

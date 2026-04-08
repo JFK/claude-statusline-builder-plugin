@@ -60,10 +60,10 @@ Your overrides live in `~/.claude/statusline-config.sh` (sourced by the script o
 | Variable | Default | Notes |
 |---|---|---|
 | `STATUSLINE_TZ` | *(system)* | IANA timezone, e.g. `Asia/Tokyo` |
-| `STATUSLINE_TZ_LABEL` | *(empty)* | Suffix on reset times, e.g. `JST` |
+| `STATUSLINE_TZ_LABEL` | *(auto)* | Suffix on reset/clock times, e.g. `JST`. Unset → auto-detect via `date +%Z`. Set to `""` to suppress |
 | `STATUSLINE_LANG` | `en` | `ja` enables 月火水木金土日 day-of-week mapping for the 7d reset |
 | `STATUSLINE_DATETIME_FMT` | `%Y-%m-%d (%a) %H:%M` | strftime format for the datetime row |
-| `STATUSLINE_USER_HOST` | `$USER@$(hostname -s)` | Identity prefix on line 1 |
+| `STATUSLINE_USER_HOST` | `$USER@$(hostname -s)` | Identity prefix on line 1. Collapses to just `$USER` when user and host match |
 | `WEATHER_ENABLED` | `1` | `0` disables the weather row |
 | `WEATHER_COORDS` | *(empty)* | `lat,lon`. Empty = wttr.in IP-detect |
 | `WEATHER_LANG` | `en` | wttr.in language code |

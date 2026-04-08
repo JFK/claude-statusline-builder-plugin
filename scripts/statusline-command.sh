@@ -28,7 +28,15 @@ fi
 # ===================== CONFIGURABLE DEFAULTS =====================
 # Locale / time
 : "${STATUSLINE_TZ:=}"                      # empty = system default
-: "${STATUSLINE_TZ_LABEL:=}"                # empty = no suffix on reset times
+# Label default: unset → auto-detect from `date +%Z` (e.g. JST, PST, CET).
+# Set to a literal empty string via config to suppress the suffix entirely.
+if [ -z "${STATUSLINE_TZ_LABEL+x}" ]; then
+  if [ -n "$STATUSLINE_TZ" ]; then
+    STATUSLINE_TZ_LABEL="$(TZ="$STATUSLINE_TZ" date +%Z 2>/dev/null)"
+  else
+    STATUSLINE_TZ_LABEL="$(date +%Z 2>/dev/null)"
+  fi
+fi
 : "${STATUSLINE_LANG:=en}"                  # 'ja' enables 月火水木金土日 day-of-week mapping
 : "${STATUSLINE_DATETIME_FMT:=%Y-%m-%d (%a) %H:%M}"
 
@@ -80,9 +88,16 @@ else
   mode="detail"
 fi
 
-# Resolve identity prefix
+# Resolve identity prefix (collapse "user@host" to "user" when they match)
 if [ -z "$STATUSLINE_USER_HOST" ]; then
-  STATUSLINE_USER_HOST="$(whoami 2>/dev/null || echo user)@$(hostname -s 2>/dev/null || echo host)"
+  _u="$(whoami 2>/dev/null || echo user)"
+  _h="$(hostname -s 2>/dev/null || echo host)"
+  if [ "$_u" = "$_h" ]; then
+    STATUSLINE_USER_HOST="$_u"
+  else
+    STATUSLINE_USER_HOST="$_u@$_h"
+  fi
+  unset _u _h
 fi
 
 # Cache file paths (all under $STATUSLINE_CACHE_DIR)

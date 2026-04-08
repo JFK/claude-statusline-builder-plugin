@@ -9,13 +9,14 @@
 # plugin's .gitignore already excludes it from the plugin repo.
 
 # ============ Locale / time ============
-# export STATUSLINE_TZ="Asia/Tokyo"
-# export STATUSLINE_TZ_LABEL="JST"
+# export STATUSLINE_TZ="Asia/Tokyo"                 # empty = system default
+# STATUSLINE_TZ_LABEL: unset = auto-detect via `date +%Z`. Set to "" to suppress.
+# export STATUSLINE_TZ_LABEL=""
 # export STATUSLINE_LANG="en"                       # 'ja' enables 月火水木金土日 day-of-week mapping
 # export STATUSLINE_DATETIME_FMT="%Y-%m-%d (%a) %H:%M"
 
 # ============ Identity ============
-# Defaults to "$USER@$(hostname -s)"
+# Defaults to "$USER@$(hostname -s)", collapsed to "$USER" when they match
 # export STATUSLINE_USER_HOST="me@laptop"
 
 # ============ Weather (wttr.in) ============

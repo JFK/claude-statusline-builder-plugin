@@ -43,7 +43,7 @@ Also check whether `~/.claude/statusline-command.sh` is installed. If not, stop 
 **Question 5 — Rendering preferences (optional, batch with Q1)**
 - Default mode: minimal or detail (default: detail)
 - Color thresholds: stick with defaults (50/75/90) or customize?
-- Identity: `$USER@$(hostname -s)` (default) or a custom string
+- Identity: `$USER@$(hostname -s)` (default, collapses to `$USER` when user and host match) or a custom string
 
 ### 3. Write the config file atomically
 
