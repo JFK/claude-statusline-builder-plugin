@@ -88,17 +88,8 @@ else
   mode="detail"
 fi
 
-# Resolve identity prefix (collapse "user@host" to "user" when they match)
-if [ -z "$STATUSLINE_USER_HOST" ]; then
-  _u="$(whoami 2>/dev/null || echo user)"
-  _h="$(hostname -s 2>/dev/null || echo host)"
-  if [ "$_u" = "$_h" ]; then
-    STATUSLINE_USER_HOST="$_u"
-  else
-    STATUSLINE_USER_HOST="$_u@$_h"
-  fi
-  unset _u _h
-fi
+# Identity prefix is resolved later, once $cwd and $git_project are known,
+# so the "user@host" collapse can fall back to a pwd basename outside git.
 
 # Cache file paths (all under $STATUSLINE_CACHE_DIR)
 CACHE_PREFIX="${STATUSLINE_CACHE_DIR}/claude-statusline"
@@ -254,6 +245,25 @@ if [ -n "$cwd" ]; then
     toplevel=$(git -C "$cwd" --no-optional-locks rev-parse --show-toplevel 2>/dev/null)
     [ -n "$toplevel" ] && git_project=$(basename "$toplevel")
   fi
+fi
+
+# Resolve identity prefix.
+#   user != host          → "user@host"
+#   user == host + in git → "user"            (git_project provides context)
+#   user == host + no git → "user@<pwd name>" (pwd basename provides context)
+if [ -z "$STATUSLINE_USER_HOST" ]; then
+  _u="$(whoami 2>/dev/null || echo user)"
+  _h="$(hostname -s 2>/dev/null || echo host)"
+  if [ "$_u" != "$_h" ]; then
+    STATUSLINE_USER_HOST="$_u@$_h"
+  elif [ -n "$git_project" ]; then
+    STATUSLINE_USER_HOST="$_u"
+  elif [ -n "$cwd" ]; then
+    STATUSLINE_USER_HOST="$_u@$(basename "$cwd")"
+  else
+    STATUSLINE_USER_HOST="$_u"
+  fi
+  unset _u _h
 fi
 
 shorten_branch() {
