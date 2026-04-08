@@ -19,6 +19,12 @@
 # Defaults to "$USER@$(hostname -s)", collapsed to "$USER" when they match
 # export STATUSLINE_USER_HOST="me@laptop"
 
+# ============ Git working-tree state ============
+# Appends ●N (modified/untracked), ±N (staged), ↑N (ahead), ↓N (behind)
+# to the branch name on line 1. Zero-valued segments are suppressed, so
+# a clean repo still renders as "(branch)" with no visual change.
+# export GIT_DIRTY_ENABLED=1
+
 # ============ Weather (wttr.in) ============
 # export WEATHER_ENABLED=1
 # export WEATHER_COORDS=""                          # empty = wttr IP-detect; e.g. "37.7749,-122.4194"

@@ -75,6 +75,9 @@ fi
 : "${STATUSLINE_USER_HOST:=}"               # empty = "$USER@$(hostname -s)"
 : "${STATUSLINE_CACHE_DIR:=/tmp}"
 
+# Git working-tree state (●N modified ±N staged ↑N ahead ↓N behind next to branch)
+: "${GIT_DIRTY_ENABLED:=1}"
+
 # One-shot mode override (used by /preview; does NOT touch the flag file)
 : "${CLAUDE_STATUSLINE_FORCE_MODE:=}"       # 'minimal' | 'detail' | ''
 # =================================================================
@@ -245,6 +248,37 @@ if [ -n "$cwd" ]; then
     toplevel=$(git -C "$cwd" --no-optional-locks rev-parse --show-toplevel 2>/dev/null)
     [ -n "$toplevel" ] && git_project=$(basename "$toplevel")
   fi
+fi
+
+# ----- Git working-tree state (appended to branch on line 1) -----
+# ●N = modified/untracked in working tree, ±N = staged, ↑N = ahead, ↓N = behind.
+# Zero-valued segments are suppressed, so a clean repo renders as "(branch)".
+git_state=""
+if [ "${GIT_DIRTY_ENABLED:-1}" = "1" ] && [ -n "$git_branch" ]; then
+  _dirty=$(git -C "$cwd" --no-optional-locks status --porcelain 2>/dev/null)
+  _staged=0
+  _modified=0
+  if [ -n "$_dirty" ]; then
+    _staged=$(printf '%s\n' "$_dirty" | grep -cE '^[MARCD]' || :)
+    _modified=$(printf '%s\n' "$_dirty" | grep -cE '^.[MD]|^\?\?' || :)
+  fi
+
+  _ahead=0
+  _behind=0
+  if git -C "$cwd" --no-optional-locks rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
+    _counts=$(git -C "$cwd" --no-optional-locks rev-list --left-right --count '@{u}...HEAD' 2>/dev/null)
+    if [ -n "$_counts" ]; then
+      _behind=$(echo "$_counts" | awk '{print $1}')
+      _ahead=$(echo "$_counts" | awk '{print $2}')
+    fi
+  fi
+
+  [ "$_modified" -gt 0 ] && git_state="${git_state} ●${_modified}"
+  [ "$_staged" -gt 0 ] && git_state="${git_state} ±${_staged}"
+  [ "$_ahead" -gt 0 ] && git_state="${git_state} ↑${_ahead}"
+  [ "$_behind" -gt 0 ] && git_state="${git_state} ↓${_behind}"
+
+  unset _dirty _staged _modified _ahead _behind _counts
 fi
 
 # Resolve identity prefix.
@@ -852,7 +886,7 @@ fi
 project_part=""
 [ -n "$git_project" ] && project_part=$(printf ":\033[01;36m%s\033[00m" "$git_project")
 branch_part=""
-[ -n "$short_branch" ] && branch_part=$(printf " (\033[01;33m%s\033[00m)" "$short_branch")
+[ -n "$short_branch" ] && branch_part=$(printf " (\033[01;33m%s%s\033[00m)" "$short_branch" "$git_state")
 line1=$(printf "\033[01;32m%s\033[00m%s%s" "$STATUSLINE_USER_HOST" "$project_part" "$branch_part")
 
 # Line 2: model + ctx (with health prefixes)
