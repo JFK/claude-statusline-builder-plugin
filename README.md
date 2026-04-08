@@ -6,7 +6,7 @@ All external HTTP fetches are TTL-cached and run in the background, so the foreg
 
 ```
 jfk@laptop:demo-project (main)
-🟢gh 🟢cf 🟢oai 🟢Claude Opus 4.6 (1M context)  ctx:234.0k/1.0M(23%)  sess:103.4k
+🟢gh 🟢cf 🟢oai 🟢Claude Opus 4.6 (1M context)  ctx:234.0k/1.0M(23%)
 💰 ant:$12.34/M  oai:$3.21/M  5h:41% → 14:00 PST  7d:17% → Fri 14:00 PST
 ☀️ +18°C  💧19%  💨↑15km/h  ☔0.0mm  🧭1017hPa  🌗  🌅05:18  🌇18:07
 🕐2026-04-08 (Wed) 14:05

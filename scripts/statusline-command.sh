@@ -251,9 +251,13 @@ shorten_branch() {
 short_branch=""
 [ -n "$git_branch" ] && short_branch=$(shorten_branch "$git_branch")
 
-# ----- Context window + session usage -----
+# ----- Context window usage -----
+# Note: a per-turn `sess:` field was removed in v0.1.2 — it was the sum of
+# input + output + cache_read_input_tokens and duplicated ctx: within ~1k
+# of rounding noise because prefix caching routes almost all context through
+# cache_read. If you want a cache-efficiency or per-turn-cost signal instead,
+# open a feature request with your preferred semantics.
 ctx_part=""
-sess_part=""
 if [ -n "$used_pct" ] && [ -n "$ctx_window" ]; then
   used_tokens=$(awk "BEGIN{printf \"%.0f\", $ctx_window * $used_pct / 100}")
   used_k=$(fmt_k "$used_tokens")
@@ -261,11 +265,6 @@ if [ -n "$used_pct" ] && [ -n "$ctx_window" ]; then
   pct_int=$(printf '%.0f' "$used_pct")
   ctx_color=$(pct_color "$pct_int")
   ctx_part="ctx:${used_k}/${total_k}(${ctx_color}${pct_int}%${RST})"
-
-  cur_tokens=$(( ${cur_input:-0} + ${cur_output:-0} + ${cur_cache_r:-0} ))
-  if [ "$cur_tokens" -gt 0 ]; then
-    sess_part="sess:$(fmt_k "$cur_tokens")"
-  fi
 fi
 
 # ----- Rate limit reset formatting -----
@@ -829,10 +828,9 @@ branch_part=""
 [ -n "$short_branch" ] && branch_part=$(printf " (\033[01;33m%s\033[00m)" "$short_branch")
 line1=$(printf "\033[01;32m%s\033[00m%s%s" "$STATUSLINE_USER_HOST" "$project_part" "$branch_part")
 
-# Line 2: model + ctx + sess (with health prefixes)
+# Line 2: model + ctx (with health prefixes)
 model_line="${extra_health_prefix}${ant_prefix}${model_part}"
-[ -n "$ctx_part" ]  && model_line="${model_line}${STATUSLINE_FIELD_SEP}${ctx_part}"
-[ -n "$sess_part" ] && model_line="${model_line}${STATUSLINE_FIELD_SEP}${sess_part}"
+[ -n "$ctx_part" ] && model_line="${model_line}${STATUSLINE_FIELD_SEP}${ctx_part}"
 
 lines=("$line1" "$model_line")
 
