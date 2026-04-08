@@ -65,6 +65,11 @@ fi
 : "${COST_ENABLED:=1}"
 : "${COST_TTL:=3600}"
 
+# Today + hourly burn rate (separate, shorter-TTL fetch — same admin keys)
+: "${COST_BURN_ENABLED:=1}"
+: "${COST_BURN_TTL:=120}"        # 2 min — matches the issue's rolling-window cadence
+: "${COST_BURN_HOUR_WINDOW:=1}"  # hours back to average for the $/h field
+
 # Rendering
 : "${STATUSLINE_BORDER_CHAR:=─}"
 : "${STATUSLINE_BORDER_WIDTH:=60}"
@@ -107,6 +112,7 @@ fi
 # Cache file paths (all under $STATUSLINE_CACHE_DIR)
 CACHE_PREFIX="${STATUSLINE_CACHE_DIR}/claude-statusline"
 CTX_HISTORY="${CACHE_PREFIX}-ctx-history"
+COST_BURN_CACHE="${CACHE_PREFIX}-cost-burn"
 WEATHER_CACHE="${CACHE_PREFIX}-weather"
 WEATHER_FORECAST_CACHE="${CACHE_PREFIX}-weather-forecast"
 NEWS_CACHE="${CACHE_PREFIX}-anthropic-news"
@@ -775,6 +781,81 @@ if [ "$COST_ENABLED" = "1" ] && { [ -n "${ANTHROPIC_ADMIN_API_KEY:-}" ] || [ -n 
   fi
 fi
 
+# ----- Background fetch: today + hourly burn rate (shorter TTL than monthly) -----
+# Schema: 4 TSV lines — ant_today, ant_hourly, oai_today, oai_hourly.
+# Hourly window is the last $COST_BURN_HOUR_WINDOW hours; "today" is the
+# UTC calendar day, matching the admin APIs' bucketing.
+if [ "${COST_BURN_ENABLED:-1}" = "1" ] && { [ -n "${ANTHROPIC_ADMIN_API_KEY:-}" ] || [ -n "${OPENAI_ADMIN_API_KEY:-}" ]; }; then
+  age=$(cache_age "$COST_BURN_CACHE")
+  if [ ! -f "$COST_BURN_CACHE" ] || [ "$age" -gt "${COST_BURN_TTL:-120}" ]; then
+    (
+      umask 077
+      day_start=$(date -u '+%Y-%m-%dT00:00:00Z')
+      day_start_epoch=$(date -u -d "$day_start" '+%s' 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$day_start" '+%s' 2>/dev/null)
+      now_iso=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+      now_epoch=$(date -u '+%s')
+      hour_cutoff_epoch=$(( now_epoch - 3600 * ${COST_BURN_HOUR_WINDOW:-1} ))
+
+      # Seed with previous values so a transient failure doesn't blank the display
+      ant_today=""
+      ant_hourly=""
+      oai_today=""
+      oai_hourly=""
+      if [ -f "$COST_BURN_CACHE" ]; then
+        prev=$(awk -F'\t' '$1=="ant_today"{print $2}' "$COST_BURN_CACHE" 2>/dev/null)
+        [ -n "$prev" ] && ant_today="$prev"
+        prev=$(awk -F'\t' '$1=="ant_hourly"{print $2}' "$COST_BURN_CACHE" 2>/dev/null)
+        [ -n "$prev" ] && ant_hourly="$prev"
+        prev=$(awk -F'\t' '$1=="oai_today"{print $2}' "$COST_BURN_CACHE" 2>/dev/null)
+        [ -n "$prev" ] && oai_today="$prev"
+        prev=$(awk -F'\t' '$1=="oai_hourly"{print $2}' "$COST_BURN_CACHE" 2>/dev/null)
+        [ -n "$prev" ] && oai_hourly="$prev"
+      fi
+
+      if [ -n "${ANTHROPIC_ADMIN_API_KEY:-}" ]; then
+        ant_burn_json=$(curl -fsS --max-time 5 -G \
+          "https://api.anthropic.com/v1/organizations/cost_report" \
+          --data-urlencode "starting_at=${day_start}" \
+          --data-urlencode "ending_at=${now_iso}" \
+          --data-urlencode "bucket_width=1h" \
+          -H "x-api-key: ${ANTHROPIC_ADMIN_API_KEY}" \
+          -H "anthropic-version: 2023-06-01" 2>/dev/null)
+        if [ -n "$ant_burn_json" ]; then
+          # today total = sum of all hourly buckets in today's range
+          v=$(echo "$ant_burn_json" | jq -r '[.data[]?.results[]?.amount | tonumber? // 0] | add // 0' 2>/dev/null)
+          [ -n "$v" ] && ant_today="$v"
+          # hourly = sum of buckets whose start_time >= now - WINDOW hours
+          v=$(echo "$ant_burn_json" | jq -r --argjson cutoff "$hour_cutoff_epoch" '
+            [.data[]? | select((.starting_at | sub("Z$";"+00:00") | fromdateiso8601) >= $cutoff)
+              | .results[]?.amount | tonumber? // 0] | add // 0' 2>/dev/null)
+          [ -n "$v" ] && ant_hourly="$v"
+        fi
+      fi
+
+      if [ -n "${OPENAI_ADMIN_API_KEY:-}" ]; then
+        oai_burn_json=$(curl -fsS --max-time 5 -G \
+          "https://api.openai.com/v1/organization/costs" \
+          --data-urlencode "start_time=${day_start_epoch}" \
+          --data-urlencode "end_time=${now_epoch}" \
+          --data-urlencode "bucket_width=1h" \
+          -H "Authorization: Bearer ${OPENAI_ADMIN_API_KEY}" 2>/dev/null)
+        if [ -n "$oai_burn_json" ]; then
+          v=$(echo "$oai_burn_json" | jq -r '[.data[]?.results[]?.amount.value // 0] | add // 0' 2>/dev/null)
+          [ -n "$v" ] && oai_today="$v"
+          v=$(echo "$oai_burn_json" | jq -r --argjson cutoff "$hour_cutoff_epoch" '
+            [.data[]? | select(.start_time >= $cutoff)
+              | .results[]?.amount.value // 0] | add // 0' 2>/dev/null)
+          [ -n "$v" ] && oai_hourly="$v"
+        fi
+      fi
+
+      printf "ant_today\t%s\nant_hourly\t%s\noai_today\t%s\noai_hourly\t%s\n" \
+        "$ant_today" "$ant_hourly" "$oai_today" "$oai_hourly" \
+        > "${COST_BURN_CACHE}.tmp" && mv "${COST_BURN_CACHE}.tmp" "$COST_BURN_CACHE"
+    ) >/dev/null 2>&1 & disown
+  fi
+fi
+
 # ----- Read cached cost; build cost prefix with env-var omission rule -----
 fmt_cost_value() {
   case "$1" in
@@ -791,6 +872,34 @@ fi
 if [ "$COST_ENABLED" = "1" ] && [ -n "${OPENAI_ADMIN_API_KEY:-}" ] && [ -f "$COST_CACHE" ]; then
   v=$(awk -F'\t' '$1=="oai"{print $2}' "$COST_CACHE")
   d=$(fmt_cost_value "$v") && cost_parts+=("oai:${d}/M")
+fi
+
+# Today + hourly burn aggregates (sum across providers whose key is set)
+if [ "${COST_BURN_ENABLED:-1}" = "1" ] && [ -f "$COST_BURN_CACHE" ] \
+   && { [ -n "${ANTHROPIC_ADMIN_API_KEY:-}" ] || [ -n "${OPENAI_ADMIN_API_KEY:-}" ]; }; then
+  burn_today=0
+  burn_hourly=0
+  burn_have_today=0
+  burn_have_hourly=0
+  if [ -n "${ANTHROPIC_ADMIN_API_KEY:-}" ]; then
+    v=$(awk -F'\t' '$1=="ant_today"{print $2}' "$COST_BURN_CACHE")
+    case "$v" in ""|"-"|"null") ;; *) burn_today=$(awk -v a="$burn_today" -v b="$v" 'BEGIN{printf "%.6f", a+b}'); burn_have_today=1 ;; esac
+    v=$(awk -F'\t' '$1=="ant_hourly"{print $2}' "$COST_BURN_CACHE")
+    case "$v" in ""|"-"|"null") ;; *) burn_hourly=$(awk -v a="$burn_hourly" -v b="$v" 'BEGIN{printf "%.6f", a+b}'); burn_have_hourly=1 ;; esac
+  fi
+  if [ -n "${OPENAI_ADMIN_API_KEY:-}" ]; then
+    v=$(awk -F'\t' '$1=="oai_today"{print $2}' "$COST_BURN_CACHE")
+    case "$v" in ""|"-"|"null") ;; *) burn_today=$(awk -v a="$burn_today" -v b="$v" 'BEGIN{printf "%.6f", a+b}'); burn_have_today=1 ;; esac
+    v=$(awk -F'\t' '$1=="oai_hourly"{print $2}' "$COST_BURN_CACHE")
+    case "$v" in ""|"-"|"null") ;; *) burn_hourly=$(awk -v a="$burn_hourly" -v b="$v" 'BEGIN{printf "%.6f", a+b}'); burn_have_hourly=1 ;; esac
+  fi
+  if [ "$burn_have_today" = "1" ]; then
+    cost_parts+=("today:$(awk -v v="$burn_today" 'BEGIN{printf "$%.2f", v}')")
+  fi
+  if [ "$burn_have_hourly" = "1" ]; then
+    cost_parts+=("$(awk -v v="$burn_hourly" 'BEGIN{printf "$%.2f/h", v}')")
+  fi
+  unset burn_today burn_hourly burn_have_today burn_have_hourly v
 fi
 
 cost_part=""
