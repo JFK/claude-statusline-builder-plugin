@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.1.3] - 2026-04-08
+
+### Added
+- **Minimal mode now surfaces the rate-limit row** (`5h:… 7d:…`) with a
+  trailing border, so the compact render still shows when your 5h / 7d
+  usage window resets
+
+### Changed
+- **Identity prefix is now context-aware.** When `$USER` and
+  `$(hostname -s)` match (common on personal machines), the `user@host`
+  prefix collapses to just `$USER` inside a git repo (the project name
+  on line 1 provides the context) and falls back to `$USER@<pwd name>`
+  outside a git repo (so the current directory still anchors the line).
+  Users with distinct user/host names see no change.
+- **`STATUSLINE_TZ_LABEL` is now auto-detected** from `date +%Z` (e.g.
+  `JST`, `PST`, `CET`) when unset, so the clock and reset rows carry a
+  timezone suffix without per-user config. Explicitly setting the var
+  to `""` suppresses the suffix.
+- **Detail mode reorders the 🕐 clock row above weather/forecast** so
+  the datetime anchors the weather block rather than trailing after it
+
+### Fixed
+- Removed now-unused `cur_input` / `cur_output` / `cur_cache_r` captures
+  from the jq parse — leftover from the v0.1.2 `sess:` field removal
+
 ## [0.1.2] - 2026-04-08
 
 ### Removed
@@ -52,6 +77,7 @@ All notable changes to this project will be documented in this file. Format foll
 - Documentation: README (en/ja), SECURITY, CONTRIBUTING, CHANGELOG, LICENSE
 - Shellcheck CI workflow
 
+[0.1.3]: https://github.com/JFK/claude-statusline-builder-plugin/releases/tag/v0.1.3
 [0.1.2]: https://github.com/JFK/claude-statusline-builder-plugin/releases/tag/v0.1.2
 [0.1.1]: https://github.com/JFK/claude-statusline-builder-plugin/releases/tag/v0.1.1
 [0.1.0]: https://github.com/JFK/claude-statusline-builder-plugin/releases/tag/v0.1.0

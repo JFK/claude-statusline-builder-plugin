@@ -1,6 +1,6 @@
 {
   "name": "claude-statusline-builder",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Rich, configurable Claude Code status line — model + context + rate limits + weather + service health + monthly cost, with minimal/detail toggle and an interactive builder agent",
   "author": {
     "name": "Fumikazu Kiyota",
