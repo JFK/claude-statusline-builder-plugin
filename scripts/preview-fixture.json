@@ -1,0 +1,20 @@
+{
+  "cwd": "/home/example/works/demo-project",
+  "model": {
+    "id": "claude-opus-4-6[1m]",
+    "display_name": "Claude Opus 4.6 (1M context)"
+  },
+  "context_window": {
+    "context_window_size": 1000000,
+    "used_percentage": 23.4,
+    "current_usage": {
+      "input_tokens": 12000,
+      "output_tokens": 3400,
+      "cache_read_input_tokens": 88000
+    }
+  },
+  "rate_limits": {
+    "five_hour": { "used_percentage": 41, "resets_at": 1775750400 },
+    "seven_day": { "used_percentage": 17, "resets_at": 1776355200 }
+  }
+}

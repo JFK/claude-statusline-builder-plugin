@@ -1,0 +1,15 @@
+{
+  "cwd": "/home/example/works/demo-project",
+  "model": {
+    "id": "claude-sonnet-4-6",
+    "display_name": "Claude Sonnet 4.6"
+  },
+  "context_window": {
+    "context_window_size": 200000,
+    "used_percentage": 8.2,
+    "current_usage": {
+      "input_tokens": 4200,
+      "output_tokens": 800
+    }
+  }
+}

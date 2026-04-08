@@ -1,0 +1,28 @@
+{
+  "name": "claude-statusline-builder",
+  "version": "0.1.0",
+  "description": "Rich, configurable Claude Code status line — model + context + rate limits + weather + service health + monthly cost, with minimal/detail toggle and an interactive builder agent",
+  "author": {
+    "name": "Fumikazu Kiyota",
+    "url": "https://github.com/JFK"
+  },
+  "repository": "https://github.com/JFK/claude-statusline-builder-plugin",
+  "license": "MIT",
+  "keywords": [
+    "statusline",
+    "status-line",
+    "ui",
+    "bash",
+    "weather",
+    "rate-limits",
+    "context-window",
+    "monthly-cost",
+    "anthropic-admin-api",
+    "openai-admin-api",
+    "service-health",
+    "news",
+    "developer-experience"
+  ],
+  "commands": ["./commands/"],
+  "agents": "./agents/"
+}

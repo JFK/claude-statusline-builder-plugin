@@ -1,0 +1,13 @@
+*.swp
+*.swo
+.DS_Store
+.idea/
+.vscode/
+
+# Local Claude Code state
+.claude/settings.local.json
+.mcp.json
+
+# User config (lives at ~/.claude/statusline-config.sh, not in this repo,
+# but ignore any accidentally-copied versions in the working tree)
+statusline-config.sh

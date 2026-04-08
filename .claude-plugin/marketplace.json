@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-statusline-builder",
+  "description": "Rich, configurable Claude Code status line with weather, service health, monthly cost and a minimal/detail toggle",
+  "owner": {
+    "name": "Fumikazu Kiyota",
+    "email": "fumikazu.kiyota@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "claude-statusline-builder",
+      "source": "./",
+      "version": "0.1.0",
+      "category": "developer-experience"
+    }
+  ]
+}
