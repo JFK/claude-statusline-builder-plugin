@@ -83,6 +83,11 @@ fi
 : "${CTX_BURN_WINDOW:=5}"        # samples kept per session
 : "${CTX_BURN_MIN_DELTA:=1000}"  # tokens/turn — below this, suppress to avoid noise
 
+# CI status indicator (🟢/🟡/🔴 next to branch on line 1)
+# Requires `gh` CLI on PATH and an authenticated session. Skipped silently when missing.
+: "${CI_ENABLED:=1}"
+: "${CI_TTL:=120}"               # 2 min — friendly to GitHub rate limits
+
 # One-shot mode override (used by /preview; does NOT touch the flag file)
 : "${CLAUDE_STATUSLINE_FORCE_MODE:=}"       # 'minimal' | 'detail' | ''
 # =================================================================
@@ -290,6 +295,17 @@ if [ "${GIT_DIRTY_ENABLED:-1}" = "1" ] && [ -n "$git_branch" ]; then
   unset _dirty _staged _modified _ahead _behind _counts
 fi
 
+# ----- CI status indicator (cache filename + background fetch) -----
+# Per-repo cache, keyed by a cksum of the remote URL so multiple repos on
+# the same machine never collide. The actual fetch and read happen later,
+# below the cache_age helper definition.
+CI_CACHE=""
+if [ "${CI_ENABLED:-1}" = "1" ] && [ -n "$git_branch" ] && [ -n "$remote_url" ]; then
+  _ci_hash=$(printf '%s' "$remote_url" | cksum 2>/dev/null | awk '{print $1}')
+  [ -n "$_ci_hash" ] && CI_CACHE="${CACHE_PREFIX}-ci-${_ci_hash}"
+  unset _ci_hash
+fi
+
 # Resolve identity prefix.
 #   user != host          → "user@host"
 #   user == host + in git → "user"            (git_project provides context)
@@ -463,6 +479,29 @@ cache_age() {
   echo $(( $(date +%s) - $(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0) ))
 }
 
+# ----- Background fetch: GitHub Actions CI status for current branch -----
+# Skipped silently when `gh` is missing, the repo has no remote, or we're
+# not in a git checkout. Cache schema is one line: "<status>\t<conclusion>".
+# When the branch has no runs, jq emits nothing and the cache file is left
+# untouched (the previous value, if any, persists until the next refresh).
+if [ -n "$CI_CACHE" ] && command -v gh >/dev/null 2>&1; then
+  age=$(cache_age "$CI_CACHE")
+  if [ ! -f "$CI_CACHE" ] || [ "$age" -gt "${CI_TTL:-120}" ]; then
+    (
+      cd "$cwd" 2>/dev/null || exit 0
+      gh run list --branch "$git_branch" --limit 1 \
+        --json status,conclusion \
+        --jq 'if length > 0 then .[0] | "\(.status)\t\(.conclusion // "-")" else empty end' 2>/dev/null \
+        > "${CI_CACHE}.tmp"
+      if [ -s "${CI_CACHE}.tmp" ]; then
+        mv "${CI_CACHE}.tmp" "$CI_CACHE"
+      else
+        rm -f "${CI_CACHE}.tmp"
+      fi
+    ) >/dev/null 2>&1 & disown
+  fi
+fi
+
 # ----- Background fetch: Anthropic health -----
 in_providers() {
   case " $HEALTH_PROVIDERS " in
@@ -580,6 +619,23 @@ if [ "$HEALTH_ENABLED" = "1" ] && in_providers cloudflare; then
       fi
     ) >/dev/null 2>&1 & disown
   fi
+fi
+
+# ----- Read cached CI status and map to a glyph -----
+ci_segment=""
+if [ -n "$CI_CACHE" ] && [ -f "$CI_CACHE" ] && [ -s "$CI_CACHE" ]; then
+  IFS=$'\t' read -r _ci_status _ci_conclusion < "$CI_CACHE"
+  case "$_ci_status" in
+    completed)
+      case "$_ci_conclusion" in
+        success)                       ci_segment=" 🟢ci" ;;
+        failure|cancelled|timed_out)   ci_segment=" 🔴ci" ;;
+        skipped|neutral|action_required|stale) ci_segment=" ⚪ci" ;;
+      esac
+      ;;
+    in_progress|queued|requested|waiting|pending) ci_segment=" 🟡ci" ;;
+  esac
+  unset _ci_status _ci_conclusion
 fi
 
 # ----- Read cached health values -----
@@ -941,7 +997,7 @@ fi
 project_part=""
 [ -n "$git_project" ] && project_part=$(printf ":\033[01;36m%s\033[00m" "$git_project")
 branch_part=""
-[ -n "$short_branch" ] && branch_part=$(printf " (\033[01;33m%s%s\033[00m)" "$short_branch" "$git_state")
+[ -n "$short_branch" ] && branch_part=$(printf " (\033[01;33m%s%s%s\033[00m)" "$short_branch" "$git_state" "$ci_segment")
 line1=$(printf "\033[01;32m%s\033[00m%s%s" "$STATUSLINE_USER_HOST" "$project_part" "$branch_part")
 
 # Line 2: model + ctx (with health prefixes)
