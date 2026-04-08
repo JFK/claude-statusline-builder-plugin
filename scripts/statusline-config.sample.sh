@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # ~/.claude/statusline-config.sh
 #
 # Override defaults for claude-statusline-builder. This file is sourced by

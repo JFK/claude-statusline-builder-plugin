@@ -525,12 +525,12 @@ if [ -n "$oai_indicator" ] && [ "$oai_indicator" != "none" ] && [ -f "$OAI_COMP_
   parts=""
   for full in "${oai_full_order[@]}"; do
     case "$full" in
-      Embeddings)   key=embed ;;
-      Fine-tuning)  key=ft ;;
-      Audio)        key=audio ;;
-      Images)       key=img ;;
-      Batch)        key=batch ;;
-      Moderations)  key=mod ;;
+      Embeddings)   key="embed" ;;
+      Fine-tuning)  key="ft" ;;
+      Audio)        key="audio" ;;
+      Images)       key="img" ;;
+      Batch)        key="batch" ;;
+      Moderations)  key="mod" ;;
       *)            key="$full" ;;
     esac
     status="${oai_status_map[$key]:-}"

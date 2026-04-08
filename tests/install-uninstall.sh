@@ -105,7 +105,7 @@ assert "settings.json preserved 'enabledPlugins.some-other-plugin'" \
 
 # CSO #2: backup directory must be 0700
 backups_perms=$(stat -c '%a' "$SANDBOX/.claude/backups" 2>/dev/null || stat -f '%A' "$SANDBOX/.claude/backups" 2>/dev/null)
-assert "~/.claude/backups/ is 0700 (got $backups_perms)" \
+assert "backups dir is 0700 (got $backups_perms)" \
   test "$backups_perms" = "700"
 
 # CSO #2: each backup file must be 0600
