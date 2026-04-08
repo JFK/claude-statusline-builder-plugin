@@ -775,7 +775,7 @@ if [ "$COST_ENABLED" = "1" ] && { [ -n "${ANTHROPIC_ADMIN_API_KEY:-}" ] || [ -n 
           --data-urlencode "bucket_width=1d" \
           -H "Authorization: Bearer ${OPENAI_ADMIN_API_KEY}" 2>/dev/null)
         if [ -n "$oai_json" ]; then
-          v=$(echo "$oai_json" | jq -r '[.data[]?.results[]?.amount.value // 0] | add // 0' 2>/dev/null)
+          v=$(echo "$oai_json" | jq -r '[.data[]?.results[]?.amount.value | tonumber? // 0] | add // 0' 2>/dev/null)
           [ -n "$v" ] && oai_total="$v"
         fi
       fi
@@ -845,11 +845,11 @@ if [ "${COST_BURN_ENABLED:-1}" = "1" ] && { [ -n "${ANTHROPIC_ADMIN_API_KEY:-}" 
           --data-urlencode "bucket_width=1h" \
           -H "Authorization: Bearer ${OPENAI_ADMIN_API_KEY}" 2>/dev/null)
         if [ -n "$oai_burn_json" ]; then
-          v=$(echo "$oai_burn_json" | jq -r '[.data[]?.results[]?.amount.value // 0] | add // 0' 2>/dev/null)
+          v=$(echo "$oai_burn_json" | jq -r '[.data[]?.results[]?.amount.value | tonumber? // 0] | add // 0' 2>/dev/null)
           [ -n "$v" ] && oai_today="$v"
           v=$(echo "$oai_burn_json" | jq -r --argjson cutoff "$hour_cutoff_epoch" '
             [.data[]? | select(.start_time >= $cutoff)
-              | .results[]?.amount.value // 0] | add // 0' 2>/dev/null)
+              | .results[]?.amount.value | tonumber? // 0] | add // 0' 2>/dev/null)
           [ -n "$v" ] && oai_hourly="$v"
         fi
       fi
