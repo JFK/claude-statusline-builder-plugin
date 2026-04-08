@@ -744,8 +744,11 @@ if [ "$WEATHER_ENABLED" = "1" ] && [ "$WEATHER_FORECAST_ENABLED" = "1" ]; then
       tom_label="Tomorrow "; day_label="Day-after "
     fi
     forecast_items=()
-    [ -n "$f_tom_max" ] && forecast_items+=("${tom_label}${f_tom_em}${f_tom_max}/${f_tom_min}°C ☔${f_tom_rain}%")
-    [ -n "$f_day_max" ] && forecast_items+=("${day_label}${f_day_em}${f_day_max}/${f_day_min}°C ☔${f_day_rain}%")
+    # Format: "<emoji> <min>/<max>°C" — min/max (low/high) matches the today row's
+    # "(↓min/↑max°C)" format, and the space after the emoji prevents it from
+    # visually crowding the first digit in monospace terminals.
+    [ -n "$f_tom_max" ] && forecast_items+=("${tom_label}${f_tom_em} ${f_tom_min}/${f_tom_max}°C ☔${f_tom_rain}%")
+    [ -n "$f_day_max" ] && forecast_items+=("${day_label}${f_day_em} ${f_day_min}/${f_day_max}°C ☔${f_day_rain}%")
     if [ ${#forecast_items[@]} -gt 0 ]; then
       joined=""
       for p in "${forecast_items[@]}"; do
