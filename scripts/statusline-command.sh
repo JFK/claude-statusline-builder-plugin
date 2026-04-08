@@ -862,6 +862,11 @@ lines=("$line1" "$model_line")
 if [ "$mode" = "minimal" ]; then
   printf "%s" "$line1"
   printf "\n%s" "$model_line"
+  if [ -n "$rate_part" ]; then
+    printf "\n%s" "$rate_part"
+    border=$(printf "%${STATUSLINE_BORDER_WIDTH}s" "" | sed "s/ /${STATUSLINE_BORDER_CHAR}/g")
+    printf "\n%s" "$border"
+  fi
   exit 0
 fi
 
@@ -879,15 +884,15 @@ if [ ${#billing_parts[@]} -gt 0 ]; then
   lines+=("$joined")
 fi
 
+# Datetime line (anchors the weather/forecast rows below it — keep them grouped)
+lines+=("$datetime_part")
+
 # Weather line
 [ -n "$weather_part" ] && lines+=("$weather_part")
 
 # Forecast line (today min/max is already inlined into weather row; this row
 # carries tomorrow + day-after-tomorrow)
 [ -n "$forecast_part" ] && lines+=("$forecast_part")
-
-# Datetime line
-lines+=("$datetime_part")
 
 # Trailing block: border + news + service-health breakdowns (only if anything to show)
 trailing=()
