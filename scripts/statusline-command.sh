@@ -166,9 +166,11 @@ indicator_icon() {
 # ----- Parse stdin JSON in one jq call -----
 # Sentinel "-" for missing strings; sentinel 0 for missing numerics.
 # bash collapses adjacent tabs in @tsv with empty strings — use sentinels not "".
+# current_usage.* fields were used for the old sess: display (removed in
+# v0.1.2 — see CHANGELOG). If/when a per-turn cost or cache-efficiency field
+# gets added, re-extract them here.
 IFS=$'\t' read -r cwd model_id model_display \
         ctx_window used_pct \
-        cur_input cur_output cur_cache_r \
         five_pct five_rst week_pct week_rst \
   < <(printf '%s' "$input" | jq -r '[
       (.cwd                                                      // "-"),
@@ -176,9 +178,6 @@ IFS=$'\t' read -r cwd model_id model_display \
       (.model.display_name                                       // "-"),
       (.context_window.context_window_size                       // 0),
       (.context_window.used_percentage                           // 0),
-      (.context_window.current_usage.input_tokens                // 0),
-      (.context_window.current_usage.output_tokens               // 0),
-      (.context_window.current_usage.cache_read_input_tokens     // 0),
       (.rate_limits.five_hour.used_percentage                    // 0),
       (.rate_limits.five_hour.resets_at                          // 0),
       (.rate_limits.seven_day.used_percentage                    // 0),
