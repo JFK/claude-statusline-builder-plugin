@@ -37,6 +37,8 @@ fi
 : "${WEATHER_COORDS:=}"                     # empty = wttr.in IP-detect
 : "${WEATHER_LANG:=en}"
 : "${WEATHER_TTL:=1800}"
+: "${WEATHER_FORECAST_ENABLED:=1}"          # 0 to skip the today min/max + tomorrow/day-after forecast row
+: "${WEATHER_FORECAST_TTL:=10800}"          # forecast changes slowly — 3h cache
 
 # News (anthropic.com/news, scraped via python3 if available)
 : "${NEWS_ENABLED:=1}"
@@ -86,6 +88,7 @@ fi
 # Cache file paths (all under $STATUSLINE_CACHE_DIR)
 CACHE_PREFIX="${STATUSLINE_CACHE_DIR}/claude-statusline"
 WEATHER_CACHE="${CACHE_PREFIX}-weather"
+WEATHER_FORECAST_CACHE="${CACHE_PREFIX}-weather-forecast"
 NEWS_CACHE="${CACHE_PREFIX}-anthropic-news"
 NEWS_IDX_FILE="${CACHE_PREFIX}-anthropic-news.idx"
 COST_CACHE="${CACHE_PREFIX}-monthly-cost"
@@ -648,15 +651,93 @@ if [ "$WEATHER_ENABLED" = "1" ]; then
   if [ -f "$WEATHER_CACHE" ] && [ -s "$WEATHER_CACHE" ]; then
     IFS='|' read -r w_cond w_temp w_hum w_wind w_prec w_pres w_moon w_rise w_set \
       < <(tr -d '\n' < "$WEATHER_CACHE")
-    for v in w_cond w_temp w_hum w_wind w_prec w_pres w_moon w_rise w_set; do
-      eval "$v=\"\${$v## }\"; $v=\"\${$v%% }\""
-    done
+    w_cond="${w_cond## }"; w_cond="${w_cond%% }"
+    w_temp="${w_temp## }"; w_temp="${w_temp%% }"
+    w_hum="${w_hum## }";   w_hum="${w_hum%% }"
+    w_wind="${w_wind## }"; w_wind="${w_wind%% }"
+    w_prec="${w_prec## }"; w_prec="${w_prec%% }"
+    w_pres="${w_pres## }"; w_pres="${w_pres%% }"
+    w_moon="${w_moon## }"; w_moon="${w_moon%% }"
+    w_rise="${w_rise## }"; w_rise="${w_rise%% }"
+    w_set="${w_set## }";   w_set="${w_set%% }"
     w_rise="${w_rise%:*}"
     w_set="${w_set%:*}"
-    if [ -n "$w_temp" ]; then
-      weather_part="${w_cond}${w_temp}${STATUSLINE_FIELD_SEP}💧${w_hum}${STATUSLINE_FIELD_SEP}💨${w_wind}${STATUSLINE_FIELD_SEP}☔${w_prec}${STATUSLINE_FIELD_SEP}🧭${w_pres}${STATUSLINE_FIELD_SEP}${w_moon}${STATUSLINE_FIELD_SEP}🌅${w_rise}${STATUSLINE_FIELD_SEP}🌇${w_set}"
+  fi
+fi
+
+# ----- Background fetch: weather forecast (j1 JSON) -----
+# Provides today's min/max + tomorrow + day-after-tomorrow forecast.
+# Parsed via jq (no python3 dependency).
+forecast_part=""
+today_minmax_part=""
+if [ "$WEATHER_ENABLED" = "1" ] && [ "$WEATHER_FORECAST_ENABLED" = "1" ]; then
+  age=$(cache_age "$WEATHER_FORECAST_CACHE")
+  if [ ! -f "$WEATHER_FORECAST_CACHE" ] || [ "$age" -gt "$WEATHER_FORECAST_TTL" ]; then
+    (
+      coord_path="${WEATHER_COORDS}"
+      url="https://wttr.in/${coord_path}?format=j1&lang=${WEATHER_LANG}"
+      curl -fsS --max-time 5 "$url" 2>/dev/null \
+        | jq -r '
+          def emoji(c):
+            if c == "113" then "☀️"
+            elif c == "116" then "⛅"
+            elif (c == "119" or c == "122") then "☁️"
+            elif (c == "143" or c == "248" or c == "260") then "🌫"
+            elif (c == "200" or c == "386" or c == "389" or c == "392" or c == "395") then "⛈"
+            elif (c == "179" or c == "227" or c == "230" or c == "320" or c == "323" or c == "326" or c == "329" or c == "332" or c == "335" or c == "338" or c == "368" or c == "371" or c == "374" or c == "377") then "🌨"
+            else "🌧"
+            end;
+          # weather[0]=today, [1]=tomorrow, [2]=day-after; hourly[4] ≈ noon
+          def noon(d): (d.hourly[4].weatherCode // d.hourly[0].weatherCode // "0");
+          def rain(d): (d.hourly[4].chanceofrain // d.hourly[0].chanceofrain // "0");
+          [
+            (.weather[0].mintempC // ""),
+            (.weather[0].maxtempC // ""),
+            (if (.weather|length) > 1 then emoji(noon(.weather[1])) else "" end),
+            (.weather[1].mintempC // ""),
+            (.weather[1].maxtempC // ""),
+            (if (.weather|length) > 1 then rain(.weather[1]) else "" end),
+            (if (.weather|length) > 2 then emoji(noon(.weather[2])) else "" end),
+            (.weather[2].mintempC // ""),
+            (.weather[2].maxtempC // ""),
+            (if (.weather|length) > 2 then rain(.weather[2]) else "" end)
+          ] | @tsv
+        ' 2>/dev/null > "${WEATHER_FORECAST_CACHE}.tmp" \
+        && [ -s "${WEATHER_FORECAST_CACHE}.tmp" ] \
+        && mv "${WEATHER_FORECAST_CACHE}.tmp" "$WEATHER_FORECAST_CACHE"
+    ) >/dev/null 2>&1 & disown
+  fi
+  if [ -f "$WEATHER_FORECAST_CACHE" ] && [ -s "$WEATHER_FORECAST_CACHE" ]; then
+    IFS=$'\t' read -r f_today_min f_today_max \
+                       f_tom_em f_tom_min f_tom_max f_tom_rain \
+                       f_day_em f_day_min f_day_max f_day_rain \
+      < <(tr -d '\n' < "$WEATHER_FORECAST_CACHE")
+    if [ -n "$f_today_min" ] && [ -n "$f_today_max" ]; then
+      today_minmax_part=" (↓${f_today_min}/↑${f_today_max}°C)"
+    fi
+    if [ "$STATUSLINE_LANG" = "ja" ]; then
+      tom_label="明日"; day_label="明後日"
+    else
+      tom_label="Tomorrow "; day_label="Day-after "
+    fi
+    forecast_items=()
+    [ -n "$f_tom_max" ] && forecast_items+=("${tom_label}${f_tom_em}${f_tom_max}/${f_tom_min}°C ☔${f_tom_rain}%")
+    [ -n "$f_day_max" ] && forecast_items+=("${day_label}${f_day_em}${f_day_max}/${f_day_min}°C ☔${f_day_rain}%")
+    if [ ${#forecast_items[@]} -gt 0 ]; then
+      joined=""
+      for p in "${forecast_items[@]}"; do
+        if [ -z "$joined" ]; then joined="$p"
+        else joined="${joined}${STATUSLINE_FIELD_SEP}${p}"
+        fi
+      done
+      forecast_part="$joined"
     fi
   fi
+fi
+
+# Assemble the current-weather row (now with today min/max appended after temp)
+if [ -n "${w_temp:-}" ]; then
+  weather_part="${w_cond}${w_temp}${today_minmax_part}${STATUSLINE_FIELD_SEP}💧${w_hum}${STATUSLINE_FIELD_SEP}💨${w_wind}${STATUSLINE_FIELD_SEP}☔${w_prec}${STATUSLINE_FIELD_SEP}🧭${w_pres}${STATUSLINE_FIELD_SEP}${w_moon}${STATUSLINE_FIELD_SEP}🌅${w_rise}${STATUSLINE_FIELD_SEP}🌇${w_set}"
 fi
 
 # ----- Background fetch: Anthropic news -----
@@ -778,6 +859,10 @@ fi
 
 # Weather line
 [ -n "$weather_part" ] && lines+=("$weather_part")
+
+# Forecast line (today min/max is already inlined into weather row; this row
+# carries tomorrow + day-after-tomorrow)
+[ -n "$forecast_part" ] && lines+=("$forecast_part")
 
 # Datetime line
 lines+=("$datetime_part")

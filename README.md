@@ -68,6 +68,8 @@ Your overrides live in `~/.claude/statusline-config.sh` (sourced by the script o
 | `WEATHER_COORDS` | *(empty)* | `lat,lon`. Empty = wttr.in IP-detect |
 | `WEATHER_LANG` | `en` | wttr.in language code |
 | `WEATHER_TTL` | `1800` | Seconds |
+| `WEATHER_FORECAST_ENABLED` | `1` | `0` drops the inline today min/max **and** the tomorrow + day-after forecast row |
+| `WEATHER_FORECAST_TTL` | `10800` | Seconds. Forecasts change slowly — 3h cache |
 | `NEWS_ENABLED` | `1` | `0` disables Anthropic news rotation. Requires `python3` |
 | `NEWS_COUNT` | `5` | Cache N items, rotate one per render |
 | `NEWS_TITLE_MAX` | `72` | Truncate titles longer than N chars |
