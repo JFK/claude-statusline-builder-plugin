@@ -1,4 +1,5 @@
 {
+  "session_id": "preview-fixture-session",
   "cwd": "/home/example/works/demo-project",
   "model": {
     "id": "claude-opus-4-6[1m]",

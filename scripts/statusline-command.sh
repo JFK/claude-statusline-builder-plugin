@@ -78,6 +78,11 @@ fi
 # Git working-tree state (●N modified ±N staged ↑N ahead ↓N behind next to branch)
 : "${GIT_DIRTY_ENABLED:=1}"
 
+# Context-window burn rate (+X.Xk/turn next to ctx percentage)
+: "${CTX_BURN_ENABLED:=1}"
+: "${CTX_BURN_WINDOW:=5}"        # samples kept per session
+: "${CTX_BURN_MIN_DELTA:=1000}"  # tokens/turn — below this, suppress to avoid noise
+
 # One-shot mode override (used by /preview; does NOT touch the flag file)
 : "${CLAUDE_STATUSLINE_FORCE_MODE:=}"       # 'minimal' | 'detail' | ''
 # =================================================================
@@ -96,6 +101,7 @@ fi
 
 # Cache file paths (all under $STATUSLINE_CACHE_DIR)
 CACHE_PREFIX="${STATUSLINE_CACHE_DIR}/claude-statusline"
+CTX_HISTORY="${CACHE_PREFIX}-ctx-history"
 WEATHER_CACHE="${CACHE_PREFIX}-weather"
 WEATHER_FORECAST_CACHE="${CACHE_PREFIX}-weather-forecast"
 NEWS_CACHE="${CACHE_PREFIX}-anthropic-news"
@@ -181,6 +187,7 @@ indicator_icon() {
 IFS=$'\t' read -r cwd model_id model_display \
         ctx_window used_pct \
         five_pct five_rst week_pct week_rst \
+        session_id \
   < <(printf '%s' "$input" | jq -r '[
       (.cwd                                                      // "-"),
       (.model.id                                                 // "-"),
@@ -190,7 +197,8 @@ IFS=$'\t' read -r cwd model_id model_display \
       (.rate_limits.five_hour.used_percentage                    // 0),
       (.rate_limits.five_hour.resets_at                          // 0),
       (.rate_limits.seven_day.used_percentage                    // 0),
-      (.rate_limits.seven_day.resets_at                          // 0)
+      (.rate_limits.seven_day.resets_at                          // 0),
+      (.session_id                                               // "-")
     ] | @tsv' 2>/dev/null)
 
 # Convert sentinels back to empty
@@ -203,6 +211,7 @@ IFS=$'\t' read -r cwd model_id model_display \
 [ "$week_pct" = "0" ]      && week_pct=""
 [ "$five_rst" = "0" ]      && five_rst=""
 [ "$week_rst" = "0" ]      && week_rst=""
+[ "$session_id" = "-" ]    && session_id=""
 
 # ----- Model display name -----
 canonical_name=""
@@ -322,7 +331,53 @@ if [ -n "$used_pct" ] && [ -n "$ctx_window" ]; then
   total_k=$(fmt_k "$ctx_window")
   pct_int=$(printf '%.0f' "$used_pct")
   ctx_color=$(pct_color "$pct_int")
-  ctx_part="ctx:${used_k}/${total_k}(${ctx_color}${pct_int}%${RST})"
+
+  # ----- Context-window burn rate (+X.Xk/turn) -----
+  # Per-session sliding window of recent ctx_token samples. On each render
+  # we append the current sample, trim to CTX_BURN_WINDOW per session, and
+  # report (current - oldest) / sample_gap as the average tokens-per-turn.
+  # Suppressed when negative (e.g. /clear) or below CTX_BURN_MIN_DELTA.
+  ctx_burn_part=""
+  if [ "${CTX_BURN_ENABLED:-1}" = "1" ] && [ -n "$session_id" ] && [ "$used_tokens" -gt 0 ] 2>/dev/null; then
+    _now=$(date +%s)
+    _new_line=$(printf '%s\t%s\t%s' "$session_id" "$_now" "$used_tokens")
+
+    # Pull existing samples for this session, append the new one, keep last N
+    _session_lines=""
+    [ -f "$CTX_HISTORY" ] && _session_lines=$(grep -F "${session_id}	" "$CTX_HISTORY" 2>/dev/null || :)
+    if [ -n "$_session_lines" ]; then
+      _session_lines=$(printf '%s\n%s\n' "$_session_lines" "$_new_line" | tail -n "${CTX_BURN_WINDOW:-5}")
+    else
+      _session_lines="$_new_line"
+    fi
+
+    # Compute delta from the oldest entry in the trimmed window
+    _sample_count=$(printf '%s\n' "$_session_lines" | wc -l | tr -d ' ')
+    if [ "$_sample_count" -ge 2 ] 2>/dev/null; then
+      _oldest=$(printf '%s\n' "$_session_lines" | head -1 | awk -F'\t' '{print $3}')
+      _gap=$((_sample_count - 1))
+      if [ "${_oldest:-0}" -gt 0 ] 2>/dev/null && [ "$_gap" -gt 0 ]; then
+        _delta=$(( (used_tokens - _oldest) / _gap ))
+        if [ "$_delta" -ge "${CTX_BURN_MIN_DELTA:-1000}" ] 2>/dev/null; then
+          ctx_burn_part=" +$(fmt_k "$_delta")/turn"
+        fi
+      fi
+    fi
+
+    # Persist: rewrite the history file, replacing this session's slice and
+    # leaving other sessions intact. Atomic via temp + mv.
+    _other_sessions=""
+    [ -f "$CTX_HISTORY" ] && _other_sessions=$(grep -vF "${session_id}	" "$CTX_HISTORY" 2>/dev/null || :)
+    _tmp="${CTX_HISTORY}.tmp.$$"
+    {
+      [ -n "$_other_sessions" ] && printf '%s\n' "$_other_sessions"
+      printf '%s\n' "$_session_lines"
+    } > "$_tmp" 2>/dev/null && mv "$_tmp" "$CTX_HISTORY" 2>/dev/null
+
+    unset _now _new_line _session_lines _sample_count _oldest _gap _delta _other_sessions _tmp
+  fi
+
+  ctx_part="ctx:${used_k}/${total_k}(${ctx_color}${pct_int}%${RST}${ctx_burn_part})"
 fi
 
 # ----- Rate limit reset formatting -----

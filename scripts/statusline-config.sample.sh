@@ -25,6 +25,15 @@
 # a clean repo still renders as "(branch)" with no visual change.
 # export GIT_DIRTY_ENABLED=1
 
+# ============ Context-window burn rate ============
+# Appends "+12.4k/turn" to the ctx percentage when the context window is
+# growing steadily, so you can judge when to /clear before hitting the
+# ceiling. Suppressed when the delta is negative (e.g. after /clear) or
+# below CTX_BURN_MIN_DELTA tokens to avoid noise.
+# export CTX_BURN_ENABLED=1
+# export CTX_BURN_WINDOW=5         # samples kept per session
+# export CTX_BURN_MIN_DELTA=1000   # tokens/turn — below this, hide the field
+
 # ============ Weather (wttr.in) ============
 # export WEATHER_ENABLED=1
 # export WEATHER_COORDS=""                          # empty = wttr IP-detect; e.g. "37.7749,-122.4194"
