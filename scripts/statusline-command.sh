@@ -759,6 +759,7 @@ if [ "$COST_ENABLED" = "1" ] && { [ -n "${ANTHROPIC_ADMIN_API_KEY:-}" ] || [ -n 
           --data-urlencode "starting_at=${month_start}" \
           --data-urlencode "ending_at=${now_iso}" \
           --data-urlencode "bucket_width=1d" \
+          --data-urlencode "limit=31" \
           -H "x-api-key: ${ANTHROPIC_ADMIN_API_KEY}" \
           -H "anthropic-version: 2023-06-01" 2>/dev/null)
         if [ -n "$ant_json" ]; then
@@ -773,6 +774,7 @@ if [ "$COST_ENABLED" = "1" ] && { [ -n "${ANTHROPIC_ADMIN_API_KEY:-}" ] || [ -n 
           --data-urlencode "start_time=${month_start_epoch}" \
           --data-urlencode "end_time=${now_epoch}" \
           --data-urlencode "bucket_width=1d" \
+          --data-urlencode "limit=31" \
           -H "Authorization: Bearer ${OPENAI_ADMIN_API_KEY}" 2>/dev/null)
         if [ -n "$oai_json" ]; then
           v=$(echo "$oai_json" | jq -r '[.data[]?.results[]?.amount.value | tonumber? // 0] | add // 0' 2>/dev/null)
@@ -823,6 +825,7 @@ if [ "${COST_BURN_ENABLED:-1}" = "1" ] && { [ -n "${ANTHROPIC_ADMIN_API_KEY:-}" 
           --data-urlencode "starting_at=${day_start}" \
           --data-urlencode "ending_at=${now_iso}" \
           --data-urlencode "bucket_width=1h" \
+          --data-urlencode "limit=31" \
           -H "x-api-key: ${ANTHROPIC_ADMIN_API_KEY}" \
           -H "anthropic-version: 2023-06-01" 2>/dev/null)
         if [ -n "$ant_burn_json" ]; then
@@ -843,6 +846,7 @@ if [ "${COST_BURN_ENABLED:-1}" = "1" ] && { [ -n "${ANTHROPIC_ADMIN_API_KEY:-}" 
           --data-urlencode "start_time=${day_start_epoch}" \
           --data-urlencode "end_time=${now_epoch}" \
           --data-urlencode "bucket_width=1h" \
+          --data-urlencode "limit=31" \
           -H "Authorization: Bearer ${OPENAI_ADMIN_API_KEY}" 2>/dev/null)
         if [ -n "$oai_burn_json" ]; then
           v=$(echo "$oai_burn_json" | jq -r '[.data[]?.results[]?.amount.value | tonumber? // 0] | add // 0' 2>/dev/null)
