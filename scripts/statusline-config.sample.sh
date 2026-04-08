@@ -23,6 +23,12 @@
 # export WEATHER_COORDS=""                          # empty = wttr IP-detect; e.g. "37.7749,-122.4194"
 # export WEATHER_LANG="en"
 # export WEATHER_TTL=1800
+#
+# Today min/max (inline) + tomorrow / day-after-tomorrow forecast row.
+# Set ENABLED=0 to drop both. Forecast cache TTL is longer because forecasts
+# change slowly compared to the current-conditions row.
+# export WEATHER_FORECAST_ENABLED=1
+# export WEATHER_FORECAST_TTL=10800                 # 3 hours
 
 # ============ News ============
 # export NEWS_ENABLED=1
