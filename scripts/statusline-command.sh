@@ -732,6 +732,12 @@ if [ -n "$cf_indicator" ] && [ "$cf_indicator" != "none" ]; then
 fi
 
 # ----- Background fetch: monthly cost (admin APIs) -----
+# --max-time 30 (not 5) because OpenAI's /v1/organization/costs endpoint is
+# routinely slow (observed 7-20s on real accounts with small monthly
+# totals). The fetch is backgrounded and disowned, so a slow curl doesn't
+# block the foreground render — it just delays when the next cache refresh
+# becomes visible. Anthropic's endpoint is faster but uses the same budget
+# for consistency.
 if [ "$COST_ENABLED" = "1" ] && { [ -n "${ANTHROPIC_ADMIN_API_KEY:-}" ] || [ -n "${OPENAI_ADMIN_API_KEY:-}" ]; }; then
   age=$(cache_age "$COST_CACHE")
   if [ ! -f "$COST_CACHE" ] || [ "$age" -gt "$COST_TTL" ]; then
@@ -754,7 +760,7 @@ if [ "$COST_ENABLED" = "1" ] && { [ -n "${ANTHROPIC_ADMIN_API_KEY:-}" ] || [ -n 
       fi
 
       if [ -n "${ANTHROPIC_ADMIN_API_KEY:-}" ]; then
-        ant_json=$(curl -fsS --max-time 5 -G \
+        ant_json=$(curl -fsS --max-time 30 -G \
           "https://api.anthropic.com/v1/organizations/cost_report" \
           --data-urlencode "starting_at=${month_start}" \
           --data-urlencode "ending_at=${now_iso}" \
@@ -769,7 +775,7 @@ if [ "$COST_ENABLED" = "1" ] && { [ -n "${ANTHROPIC_ADMIN_API_KEY:-}" ] || [ -n 
       fi
 
       if [ -n "${OPENAI_ADMIN_API_KEY:-}" ]; then
-        oai_json=$(curl -fsS --max-time 5 -G \
+        oai_json=$(curl -fsS --max-time 30 -G \
           "https://api.openai.com/v1/organization/costs" \
           --data-urlencode "start_time=${month_start_epoch}" \
           --data-urlencode "end_time=${now_epoch}" \
@@ -820,7 +826,7 @@ if [ "${COST_BURN_ENABLED:-1}" = "1" ] && { [ -n "${ANTHROPIC_ADMIN_API_KEY:-}" 
       fi
 
       if [ -n "${ANTHROPIC_ADMIN_API_KEY:-}" ]; then
-        ant_burn_json=$(curl -fsS --max-time 5 -G \
+        ant_burn_json=$(curl -fsS --max-time 30 -G \
           "https://api.anthropic.com/v1/organizations/cost_report" \
           --data-urlencode "starting_at=${day_start}" \
           --data-urlencode "ending_at=${now_iso}" \
@@ -841,7 +847,7 @@ if [ "${COST_BURN_ENABLED:-1}" = "1" ] && { [ -n "${ANTHROPIC_ADMIN_API_KEY:-}" 
       fi
 
       if [ -n "${OPENAI_ADMIN_API_KEY:-}" ]; then
-        oai_burn_json=$(curl -fsS --max-time 5 -G \
+        oai_burn_json=$(curl -fsS --max-time 30 -G \
           "https://api.openai.com/v1/organization/costs" \
           --data-urlencode "start_time=${day_start_epoch}" \
           --data-urlencode "end_time=${now_epoch}" \
