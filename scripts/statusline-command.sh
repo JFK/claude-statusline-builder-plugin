@@ -841,9 +841,9 @@ else
   datetime_str=$(date "+${STATUSLINE_DATETIME_FMT}")
 fi
 if [ -n "$STATUSLINE_TZ_LABEL" ]; then
-  datetime_part="🕐${datetime_str} ${STATUSLINE_TZ_LABEL}"
+  datetime_part="🕐 ${datetime_str} ${STATUSLINE_TZ_LABEL}"
 else
-  datetime_part="🕐${datetime_str}"
+  datetime_part="🕐 ${datetime_str}"
 fi
 
 # ===================== ASSEMBLE OUTPUT =====================
