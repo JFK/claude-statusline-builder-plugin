@@ -34,6 +34,14 @@
 # export CTX_BURN_WINDOW=5         # samples kept per session
 # export CTX_BURN_MIN_DELTA=1000   # tokens/turn — below this, hide the field
 
+# ============ CI status indicator ============
+# Appends 🟢ci / 🟡ci / 🔴ci / ⚪ci to the branch on line 1, reflecting the
+# latest GitHub Actions run for the current branch. Requires the `gh` CLI
+# on PATH and an authenticated session — silently disabled otherwise.
+# Cache TTL is short to surface failures fast without hammering rate limits.
+# export CI_ENABLED=1
+# export CI_TTL=120                # seconds
+
 # ============ Weather (wttr.in) ============
 # export WEATHER_ENABLED=1
 # export WEATHER_COORDS=""                          # empty = wttr IP-detect; e.g. "37.7749,-122.4194"
