@@ -78,6 +78,13 @@
 # Both keys unset → no cost prefix on the billing line at all.
 # export COST_ENABLED=1
 # export COST_TTL=3600
+#
+# Today + hourly burn rate (separate, shorter-TTL fetch — same admin keys).
+# Adds "today:$X.XX" and "$Y.YY/h" segments to the billing line, aggregated
+# across providers whose key is set. Suppressed when no admin key is set.
+# export COST_BURN_ENABLED=1
+# export COST_BURN_TTL=120          # seconds — 2 min matches the rolling-window cadence
+# export COST_BURN_HOUR_WINDOW=1    # hours back to average for the $/h field
 
 # ============ Rendering ============
 # export STATUSLINE_BORDER_CHAR="─"
