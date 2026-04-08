@@ -142,11 +142,13 @@ echo "=== Phase 3: toggle round-trip ==="
   test -f "$FLAG"
   out=$(bash "$HOME/.claude/statusline-command.sh" < "$PLUGIN_ROOT/scripts/preview-fixture.json")
   lines=$(echo "$out" | wc -l)
-  test "$lines" -eq 2 || { echo "FAIL: expected 2 lines in minimal mode, got $lines"; exit 1; }
+  # v0.1.3+: minimal mode = identity + model + rate-limit row + border = 4 lines
+  # when the fixture carries rate_limits (preview-fixture.json does).
+  test "$lines" -eq 4 || { echo "FAIL: expected 4 lines in minimal mode, got $lines"; exit 1; }
   rm -f "$FLAG"
   test ! -f "$FLAG"
 )
-assert "/toggle minimal flag-file path produces 2-line output" true
+assert "/toggle minimal flag-file path produces 4-line output" true
 
 # ============================================================
 # PHASE 4: simulate /uninstall
