@@ -387,14 +387,19 @@ if [ -n "$used_pct" ] && [ -n "$ctx_window" ]; then
     fi
 
     # Persist: rewrite the history file, replacing this session's slice and
-    # leaving other sessions intact. Atomic via temp + mv.
+    # leaving other sessions intact. Atomic via temp + mv. The subshell sets
+    # umask 077 so the cache lands at 0600 — session ids and per-turn token
+    # counts are usage-pattern data we don't want other local users to read.
     _other_sessions=""
     [ -f "$CTX_HISTORY" ] && _other_sessions=$(grep -vF "${session_id}	" "$CTX_HISTORY" 2>/dev/null || :)
     _tmp="${CTX_HISTORY}.tmp.$$"
-    {
-      [ -n "$_other_sessions" ] && printf '%s\n' "$_other_sessions"
-      printf '%s\n' "$_session_lines"
-    } > "$_tmp" 2>/dev/null && mv "$_tmp" "$CTX_HISTORY" 2>/dev/null
+    (
+      umask 077
+      {
+        [ -n "$_other_sessions" ] && printf '%s\n' "$_other_sessions"
+        printf '%s\n' "$_session_lines"
+      } > "$_tmp" 2>/dev/null && mv "$_tmp" "$CTX_HISTORY" 2>/dev/null
+    )
 
     unset _now _new_line _session_lines _sample_count _oldest _gap _delta _other_sessions _tmp
   fi
