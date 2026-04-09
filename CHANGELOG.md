@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.1.4] - 2026-04-09
+
+### Fixed
+- **Clock row renders with a space after the 🕐 emoji** (`🕐 2026-04-09`
+  instead of `🕐2026-04-09`), matching the spacing convention already
+  used by the forecast row. The datetime section was the last
+  emoji-prefixed line that still collided visually with its value.
+  (#5)
+
 ## [0.1.3] - 2026-04-08
 
 ### Added
