@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "claude-statusline-builder",
-  "description": "Rich, configurable Claude Code status line with weather, service health, monthly cost and a minimal/detail toggle",
+  "description": "Rich, configurable Claude Code status line — model, context + burn rate, rate limits, git state, GitHub Actions CI, monthly + today/hourly Anthropic/OpenAI cost, weather, service health. Minimal/detail toggle + interactive builder agent.",
   "owner": {
     "name": "Fumikazu Kiyota",
     "email": "fumikazu.kiyota@gmail.com"
