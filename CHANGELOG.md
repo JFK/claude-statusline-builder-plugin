@@ -2,6 +2,61 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-04-09
+
+External signals — the statusline now surfaces CI status and
+today/hourly spend, and the longstanding cost-fetch bugs that were
+masking OpenAI monthly totals are all fixed.
+
+### Added
+- **GitHub Actions CI status indicator on line 1.** Appends `🟢ci`,
+  `🟡ci`, `🔴ci`, or `⚪ci` to the branch parens (after any git state
+  segments) reflecting the latest run for the current branch. Catches
+  CI regressions within one render instead of requiring a tab switch.
+  Background `gh run list` fetch with a per-repo cache keyed by
+  `cksum(remote.origin.url)`, 120s TTL. Silently skipped when `gh` is
+  missing, the repo has no remote, or the user isn't authenticated.
+  New `CI_ENABLED` / `CI_TTL` env vars. (#2)
+- **Today + hourly burn rate on the billing line.** `💰 ant:$12.34/M`
+  becomes `💰 ant:$12.34/M  oai:$3.21/M  today:$5.70  $0.55/h` so users
+  see both the monthly trajectory and the short-window burn. `today:`
+  and `$/h` are aggregated across providers whose admin key is set
+  (they collapse to one vendor's values when only one key is
+  configured). Separate background fetch with a shorter (120s) TTL so
+  the existing 1h-cadence monthly fetch is untouched. New
+  `COST_BURN_ENABLED` / `COST_BURN_TTL` / `COST_BURN_HOUR_WINDOW` env
+  vars. (#4)
+
+### Fixed
+- **OpenAI cost values were concatenated instead of summed.** The
+  OpenAI admin API returns `amount.value` as a string (`"0.0001"`),
+  and the existing jq filter `[.data[]?.results[]?.amount.value] | add`
+  was running `add` over an array of strings — which concatenates them
+  into garbage like `"0.00010.000480.04249..."` that `awk` then
+  truncated to `$0.00`. Added `| tonumber?` to coerce each value before
+  the sum, matching the pattern the Anthropic filter was already using.
+  The bug had been present since the original monthly cost feature;
+  it only became visible when the burn-rate row put a second OpenAI
+  number next to it for comparison. (#12)
+- **Admin cost APIs now request 31 buckets instead of the 7-bucket
+  default.** Neither Anthropic nor OpenAI document `limit=7` as the
+  default, but both return exactly 7 buckets when `limit` is omitted.
+  With `bucket_width=1d` and a date range of "current month to now",
+  that silently undercounted the monthly total for any month past day
+  7. All four admin API calls (2 monthly + 2 burn) now pass
+  `--data-urlencode "limit=31"` explicitly. Pagination via
+  `has_more`/`next_page` is not implemented — 31 covers both 1d (a
+  month) and 1h (today) bucket ranges within our query boundaries. (#13)
+- **Admin cost API fetches now use `--max-time 30` (was 5).** OpenAI's
+  `/v1/organization/costs` endpoint is routinely slow — observed 7–20s
+  response times on real accounts with small monthly totals. Our
+  previous `--max-time 5` budget was killing every call before it
+  could complete, so the cache stayed empty and the `oai:` segment
+  silently disappeared from the billing line. The fetch is already
+  backgrounded via `( ... ) & disown`, so a 30s curl never blocks the
+  foreground render — it just delays when the next cache refresh
+  becomes visible. Weather fetch kept at 5s (wttr.in is fast). (#14)
+
 ## [0.2.0] - 2026-04-09
 
 Local awareness — the statusline now reflects what's happening inside
