@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-04-09
+
+Local awareness — the statusline now reflects what's happening inside
+your repo and inside your Claude Code session, without reaching out to
+any new external systems.
+
+### Added
+- **Git working-tree state on line 1.** The branch parens now append
+  `●N` (modified/untracked), `±N` (staged), `↑N` (ahead), `↓N` (behind)
+  whenever any of them are non-zero, so you notice uncommitted or
+  unpushed work mid-session without running `git status`. Clean repos
+  still render as `(branch)` with no visual change. New
+  `GIT_DIRTY_ENABLED` env var (default `1`) lets users opt out.
+  Runs in ~6ms on typical repos. (#1)
+- **Context-window burn rate on the model line.** `ctx:234.0k/1.0M(23%)`
+  becomes `ctx:234.0k/1.0M(23% +12.4k/turn)` when the window is growing
+  steadily, so users can judge when to `/clear` before hitting the
+  ceiling. Per-session sliding window of the last
+  `CTX_BURN_WINDOW` samples (default 5), with
+  `CTX_BURN_MIN_DELTA` (default 1000 tokens) noise floor. Suppressed
+  cleanly after `/clear` (negative delta) and on the first render of a
+  new session (insufficient samples). Multi-session safe via
+  session-id keyed slices. (#3)
+
+### Fixed
+- **ctx-history cache is now user-only (0600).** The per-session cache
+  that powers the burn rate was writing at the default 0644 umask,
+  leaving session ids and per-turn token counts readable by other local
+  users on multi-user systems. The persist block is now wrapped in a
+  `( umask 077; ... )` subshell so the cache lands at 0600; existing
+  0644 files flip automatically on the next render (`mv` preserves the
+  temp file's mode). Matches the existing convention for the cost
+  cache. Found in the CSO security review of the burn-rate feature.
+
 ## [0.1.4] - 2026-04-09
 
 ### Fixed
