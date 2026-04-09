@@ -1,7 +1,7 @@
 {
   "name": "claude-statusline-builder",
   "version": "0.3.0",
-  "description": "Rich, configurable Claude Code status line — model + context + rate limits + weather + service health + monthly cost, with minimal/detail toggle and an interactive builder agent",
+  "description": "Rich, configurable Claude Code status line — model, context + burn rate, rate limits, git state, GitHub Actions CI, monthly + today/hourly Anthropic/OpenAI cost, weather, service health. Minimal/detail toggle + interactive builder agent.",
   "author": {
     "name": "Fumikazu Kiyota",
     "url": "https://github.com/JFK"
@@ -13,12 +13,21 @@
     "status-line",
     "ui",
     "bash",
+    "claude-code",
+    "claude-ai",
     "weather",
     "rate-limits",
     "context-window",
-    "monthly-cost",
+    "burn-rate",
+    "cost-tracking",
+    "anthropic-api",
     "anthropic-admin-api",
+    "openai-api",
     "openai-admin-api",
+    "git",
+    "git-status",
+    "github-actions",
+    "ci-status",
     "service-health",
     "news",
     "developer-experience"

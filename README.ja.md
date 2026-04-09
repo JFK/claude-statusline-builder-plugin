@@ -1,5 +1,10 @@
 # claude-statusline-builder
 
+[![shellcheck](https://github.com/JFK/claude-statusline-builder-plugin/actions/workflows/shellcheck.yml/badge.svg)](https://github.com/JFK/claude-statusline-builder-plugin/actions/workflows/shellcheck.yml)
+[![release](https://img.shields.io/github/v/release/JFK/claude-statusline-builder-plugin)](https://github.com/JFK/claude-statusline-builder-plugin/releases)
+[![license](https://img.shields.io/github/license/JFK/claude-statusline-builder-plugin)](LICENSE)
+[![English](https://img.shields.io/badge/lang-English-blue)](README.md)
+
 [Claude Code](https://claude.com/claude-code) 用のリッチで設定可能なステータスライン — モデル + コンテキストウィンドウ (バーン率付き) + レート制限 + 月額 **および** 今日/時間ごとの Anthropic/OpenAI コスト + git 作業ツリー状態 + GitHub Actions CI ステータス + 天気 + サービスヘルス (Anthropic / GitHub / OpenAI / Cloudflare) + Anthropic ニュース見出し、ワンキーで minimal/detail 切り替え。
 
 外部 HTTP fetch はすべて TTL キャッシュ + バックグラウンド実行なので、フォアグラウンドのレンダリングは毎ターン高速のまま。

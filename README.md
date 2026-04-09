@@ -1,5 +1,10 @@
 # claude-statusline-builder
 
+[![shellcheck](https://github.com/JFK/claude-statusline-builder-plugin/actions/workflows/shellcheck.yml/badge.svg)](https://github.com/JFK/claude-statusline-builder-plugin/actions/workflows/shellcheck.yml)
+[![release](https://img.shields.io/github/v/release/JFK/claude-statusline-builder-plugin)](https://github.com/JFK/claude-statusline-builder-plugin/releases)
+[![license](https://img.shields.io/github/license/JFK/claude-statusline-builder-plugin)](LICENSE)
+[![日本語](https://img.shields.io/badge/lang-日本語-red)](README.ja.md)
+
 A rich, configurable status line for [Claude Code](https://claude.com/claude-code) — model + context window (with burn rate) + rate limits + monthly **and** today/hourly Anthropic/OpenAI cost + git working-tree state + GitHub Actions CI status + weather + service health (Anthropic / GitHub / OpenAI / Cloudflare) + Anthropic news headlines, with a one-key minimal/detail toggle.
 
 All external HTTP fetches are TTL-cached and run in the background, so the foreground render stays fast on every Claude turn.
