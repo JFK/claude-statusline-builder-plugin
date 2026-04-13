@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0](https://github.com/JFK/claude-statusline-builder-plugin/releases/tag/v0.4.0) — 2026-04-13
+
+### Added
+- **Today's precipitation probability in weather line.** Displays `☔N%`
+  inside the daily min/max parentheses (e.g. `↓16/↑22°C ☔10%`), matching
+  the format already used for tomorrow and day-after forecasts. (#17)
+
 ## [0.3.0] - 2026-04-09
 
 External signals — the statusline now surfaces CI status and
