@@ -993,7 +993,7 @@ if [ "$WEATHER_ENABLED" = "1" ] && [ "$WEATHER_FORECAST_ENABLED" = "1" ]; then
             (.weather[2].mintempC // ""),
             (.weather[2].maxtempC // ""),
             (if (.weather|length) > 2 then rain(.weather[2]) else "" end),
-            rain(.weather[0])
+            (if (.weather|length) > 0 then rain(.weather[0]) else "" end)
           ] | @tsv
         ' 2>/dev/null > "${WEATHER_FORECAST_CACHE}.tmp" \
         && [ -s "${WEATHER_FORECAST_CACHE}.tmp" ] \
