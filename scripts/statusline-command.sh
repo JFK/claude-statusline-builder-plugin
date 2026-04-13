@@ -992,7 +992,8 @@ if [ "$WEATHER_ENABLED" = "1" ] && [ "$WEATHER_FORECAST_ENABLED" = "1" ]; then
             (if (.weather|length) > 2 then emoji(noon(.weather[2])) else "" end),
             (.weather[2].mintempC // ""),
             (.weather[2].maxtempC // ""),
-            (if (.weather|length) > 2 then rain(.weather[2]) else "" end)
+            (if (.weather|length) > 2 then rain(.weather[2]) else "" end),
+            (if (.weather|length) > 0 then rain(.weather[0]) else "" end)
           ] | @tsv
         ' 2>/dev/null > "${WEATHER_FORECAST_CACHE}.tmp" \
         && [ -s "${WEATHER_FORECAST_CACHE}.tmp" ] \
@@ -1003,9 +1004,14 @@ if [ "$WEATHER_ENABLED" = "1" ] && [ "$WEATHER_FORECAST_ENABLED" = "1" ]; then
     IFS=$'\t' read -r f_today_min f_today_max \
                        f_tom_em f_tom_min f_tom_max f_tom_rain \
                        f_day_em f_day_min f_day_max f_day_rain \
+                       f_today_rain \
       < <(tr -d '\n' < "$WEATHER_FORECAST_CACHE")
     if [ -n "$f_today_min" ] && [ -n "$f_today_max" ]; then
-      today_minmax_part=" (↓${f_today_min}/↑${f_today_max}°C)"
+      if [ -n "$f_today_rain" ]; then
+        today_minmax_part=" (↓${f_today_min}/↑${f_today_max}°C ☔${f_today_rain}%)"
+      else
+        today_minmax_part=" (↓${f_today_min}/↑${f_today_max}°C)"
+      fi
     fi
     if [ "$STATUSLINE_LANG" = "ja" ]; then
       tom_label="明日"; day_label="明後日"
