@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [v0.4.1](https://github.com/JFK/claude-statusline-builder-plugin/releases/tag/v0.4.1) — 2026-04-14
 
 ### Fixed
 - **Today's `☔N%` now reflects the whole day, not just noon.** Previously
