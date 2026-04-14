@@ -1043,7 +1043,7 @@ fi
 
 # Assemble the current-weather row (now with today min/max appended after temp)
 if [ -n "${w_temp:-}" ]; then
-  weather_part="${w_cond}${w_temp}${today_minmax_part}${STATUSLINE_FIELD_SEP}💧${w_hum}${STATUSLINE_FIELD_SEP}💨${w_wind}${STATUSLINE_FIELD_SEP}☔${w_prec}${STATUSLINE_FIELD_SEP}🧭${w_pres}${STATUSLINE_FIELD_SEP}${w_moon}${STATUSLINE_FIELD_SEP}🌅${w_rise}${STATUSLINE_FIELD_SEP}🌇${w_set}"
+  weather_part="${w_cond}${w_temp}${today_minmax_part}${STATUSLINE_FIELD_SEP}💧${w_hum}${STATUSLINE_FIELD_SEP}💨${w_wind}${STATUSLINE_FIELD_SEP}💦${w_prec}${STATUSLINE_FIELD_SEP}🧭${w_pres}${STATUSLINE_FIELD_SEP}${w_moon}${STATUSLINE_FIELD_SEP}🌅${w_rise}${STATUSLINE_FIELD_SEP}🌇${w_set}"
 fi
 
 # ----- Background fetch: Anthropic news -----

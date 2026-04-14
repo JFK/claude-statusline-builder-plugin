@@ -14,7 +14,7 @@ jfk@laptop:claude-statusline-builder-plugin (main ●2 ↑1 🟢ci)
 🟢gh 🟢cf 🟢oai 🟢Claude Opus 4.6 (1M context)  ctx:234.0k/1.0M(23% +12.4k/turn)
 💰 ant:$12.34/M  oai:$3.21/M  today:$1.45  $0.12/h  5h:41% → 14:00 JST  7d:17% → 金 14:00 JST
 🕐 2026-04-09 (木) 14:05 JST
-☀️ +18°C (↓9/↑17°C)  💧19%  💨↑15km/h  ☔0.0mm  🧭1017hPa  🌗  🌅05:18  🌇18:07
+☀️ +18°C (↓9/↑17°C)  💧19%  💨↑15km/h  💦0.0mm  🧭1017hPa  🌗  🌅05:18  🌇18:07
 明日 ⛅ 10/19°C ☔0%  明後日 🌧 14/20°C ☔100%
 ────────────────────────────────────────────────────────────
 📰[1/5] Anthropic expands partnership with Google and Broadcom
