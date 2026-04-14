@@ -44,10 +44,10 @@ For guided setup (timezone, weather, providers, cost tracking), spawn the builde
 
 | Command | What it does |
 |---|---|
-| `/claude-statusline-builder:install` | Copies the script to `~/.claude/statusline-command.sh`, backs up any existing one, wires it into `~/.claude/settings.json`, and stamps a commented config template |
+| `/claude-statusline-builder:install` | Copies the script to `~/.claude/statusline-command.sh`, backs up any existing one, wires it into `~/.claude/settings.json`, stamps a commented config template, and prompts once for a weather location (IP auto-detect is wrong on WSL2/VPN/cloud-shell). Pass `force` to skip the prompt. |
 | `/claude-statusline-builder:toggle` | Flips between **minimal** (identity + branch + model) and **detail** (full multi-line) rendering. Pass `minimal`, `detail`, `status`, or no argument to flip |
 | `/claude-statusline-builder:preview` | Renders the statusline once with a synthetic JSON fixture so you can verify it without waiting for a Claude turn. Pass `minimal` or `detail` for a one-shot mode override |
-| `/claude-statusline-builder:doctor` | 12-point diagnosis: deps, settings.json wiring, cache freshness, env vars, HTTPS reachability, fixture render, date portability. Pass `fix` for one-line remediation hints |
+| `/claude-statusline-builder:doctor` | 13-point diagnosis: deps, settings.json wiring, cache freshness, env vars, HTTPS reachability, weather-location sanity, fixture render, date portability. Pass `fix` for one-line remediation hints |
 | `/claude-statusline-builder:config` | `show` (default) prints all effective values with origin (user vs default). `init` stamps a fresh config template. `<KEY_NAME>` prints one value |
 | `/claude-statusline-builder:uninstall` | Restores the previous `~/.claude/settings.json` from backup, deletes the installed script and the mode flag. Pass `purge` to also remove your config and `/tmp` cache files |
 

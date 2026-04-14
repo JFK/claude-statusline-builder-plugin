@@ -12,7 +12,7 @@ Diagnostic output must NEVER include the value of any environment variable that 
 
 ## Steps
 
-Run a structured 12-point checklist. For each step, print one line: `✅` (pass), `⚠️` (warn), or `❌` (fail), followed by a short label and the result.
+Run a structured 13-point checklist. For each step, print one line: `✅` (pass), `⚠️` (warn), or `❌` (fail), followed by a short label and the result.
 
 ### 1. Required dependencies on PATH
 `command -v jq curl bash awk git python3` — `python3` is optional (only needed for news scraping); the rest are required.
@@ -41,21 +41,35 @@ For each of `weather`, `anthropic-news`, `monthly-cost`, and the four `*-health`
 ### 9. Outbound HTTPS reachability
 `curl -fsS --max-time 4 https://wttr.in/?format=3 >/dev/null` — if this fails, all background fetches are blocked. Suggest checking firewall/proxy.
 
-### 10. One Statuspage probe
+### 10. Weather location sanity
+Read `WEATHER_COORDS` from the shell environment that sources `~/.claude/statusline-config.sh` (source the file in a subshell, then `echo "${WEATHER_COORDS:-}"`). Also probe what wttr.in currently resolves the client IP to:
+
+```bash
+wttr_ip_loc=$(curl -fsS --max-time 4 https://wttr.in/?format=%l 2>/dev/null)
+```
+
+Report one of three states:
+- **override set** → `✅ weather location: override "$WEATHER_COORDS" (wttr-IP would pick "$wttr_ip_loc")`
+- **override unset, probe succeeded** → `⚠️ weather location: auto-detect → "$wttr_ip_loc". Verify this matches where you actually are; egress IPs on WSL2/VPN/cloud-shell often resolve to a datacenter city. Set WEATHER_COORDS in ~/.claude/statusline-config.sh to override.`
+- **override unset, probe failed** → `⚠️ weather location: auto-detect but wttr.in unreachable (see step 9)`
+
+Never try to infer "correct" — doctor has no way to know where the user physically is. Just surface the two values so the user can cross-check.
+
+### 11. One Statuspage probe
 `curl -fsS --max-time 4 https://status.claude.com/api/v2/summary.json | jq -r .status.indicator` — if this returns a value (`none`, `minor`, etc.), Statuspage is reachable.
 
-### 11. End-to-end render
+### 12. End-to-end render
 Pipe `${CLAUDE_PLUGIN_ROOT}/scripts/preview-fixture.json` into the installed script and check the exit code is 0. If non-zero, show stderr.
 
-### 12. Date portability
+### 13. Date portability
 `date -d @1700000000 +%H:%M 2>/dev/null` (GNU) or `date -r 1700000000 +%H:%M 2>/dev/null` (BSD) — confirm at least one works. The script tries both.
 
 ## Output
 
 Group results into:
-- **Required** (steps 1–3, 11) — any ❌ here means the statusline won't render at all
-- **Recommended** (steps 4–6, 12) — any ❌ here means partial functionality
-- **Network / freshness** (steps 7–10) — any ❌ here means rows that depend on external data may be missing or stale
+- **Required** (steps 1–3, 12) — any ❌ here means the statusline won't render at all
+- **Recommended** (steps 4–6, 13) — any ❌ here means partial functionality
+- **Network / freshness** (steps 7–11) — any ❌ here means rows that depend on external data may be missing or stale
 
 End with a one-line summary: "All checks passed." or "X check(s) failed — see above."
 

@@ -44,10 +44,10 @@ jfk@laptop:claude-statusline-builder-plugin (main ●2 ↑1 🟢ci)
 
 | コマンド | 動作 |
 |---|---|
-| `/claude-statusline-builder:install` | スクリプトを `~/.claude/statusline-command.sh` にコピーし、既存ファイルをバックアップ、`~/.claude/settings.json` に配線、コメント付き設定テンプレートを配置 |
+| `/claude-statusline-builder:install` | スクリプトを `~/.claude/statusline-command.sh` にコピーし、既存ファイルをバックアップ、`~/.claude/settings.json` に配線、コメント付き設定テンプレートを配置、天気の位置情報を一度だけ対話で確認 (WSL2/VPN/クラウドシェルでは IP 自動検出が誤りがち)。`force` 引数で対話スキップ |
 | `/claude-statusline-builder:toggle` | **minimal** (アイデンティティ + ブランチ + モデル + レート制限) と **detail** (フル多行) を切り替え。引数なし=フリップ。`minimal` / `detail` / `status` も可 |
 | `/claude-statusline-builder:preview` | ダミー JSON ペイロードで一回レンダリング。`minimal` / `detail` でモード強制も可 |
-| `/claude-statusline-builder:doctor` | 12項目の診断: 依存・`settings.json` 配線・キャッシュ鮮度・環境変数・HTTPS到達性・フィクスチャレンダ・`date` 互換性。`fix` で修復ヒント |
+| `/claude-statusline-builder:doctor` | 13項目の診断: 依存・`settings.json` 配線・キャッシュ鮮度・環境変数・HTTPS到達性・天気の位置情報整合性・フィクスチャレンダ・`date` 互換性。`fix` で修復ヒント |
 | `/claude-statusline-builder:config` | `show` (デフォルト) で全設定値とソース表示 (ユーザー設定 vs デフォルト)。`init` でテンプレ生成。`<KEY_NAME>` で単一値 |
 | `/claude-statusline-builder:uninstall` | バックアップから `~/.claude/settings.json` 復元、インストール済みスクリプトとモードフラグ削除。`purge` で設定ファイルと `/tmp` キャッシュも削除 |
 
