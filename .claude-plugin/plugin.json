@@ -1,6 +1,6 @@
 {
   "name": "claude-statusline-builder",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Rich, configurable Claude Code status line — model, context + burn rate, rate limits, git state, GitHub Actions CI, monthly + today/hourly Anthropic/OpenAI cost, weather, service health. Minimal/detail toggle + interactive builder agent.",
   "author": {
     "name": "Fumikazu Kiyota",
