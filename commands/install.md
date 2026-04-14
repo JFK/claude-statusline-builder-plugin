@@ -64,15 +64,62 @@ cp -n "${CLAUDE_PLUGIN_ROOT}/scripts/statusline-config.sample.sh" \
 
 The template is fully commented out, so the script's defaults remain in effect until the user uncomments lines.
 
-### 8. Print recap
+### 8. Prompt for weather location (skip if `$ARGUMENTS` is `force`)
 
-Print a 6-line summary:
+Weather uses `wttr.in`, which geolocates by egress IP when `WEATHER_COORDS` is empty. On WSL2, VPN, corporate network, or cloud-shell setups, that IP can resolve to a different city (or country) than where the user actually is — silently showing wrong weather forever. Ask once during install so the user catches this up front.
+
+Probe what wttr.in currently resolves to, so the user can compare:
+
+```bash
+wttr_ip_loc=$(curl -fsS --max-time 4 "https://wttr.in/?format=%l" 2>/dev/null || echo "")
+```
+
+Then use the `AskUserQuestion` tool with:
+
+- Question label: `weather-location`
+- Question header: `Weather location`
+- Question body: `wttr.in IP-detected: "${wttr_ip_loc:-unavailable}". This may be wrong on WSL2/VPN/cloud-shell — the egress IP often resolves to a datacenter city, not where you actually are. Pick a fixed location if the detected one is wrong.`
+- Options:
+  - `Use IP auto-detect` — description: `Keep WEATHER_COORDS empty; wttr.in picks the city from your egress IP on every fetch.`
+  - `Enter city name` — description: `e.g. "San Francisco", "Berlin", "Tokyo". Writes WEATHER_COORDS to the config.`
+  - `Enter coordinates` — description: `e.g. "37.7749,-122.4194". Most precise; always resolves the same place.`
+  - `Skip` — description: `Leave the config untouched. You can edit ~/.claude/statusline-config.sh later or rerun install.`
+- `multiSelect: false`
+
+If the user picks "Enter city name" or "Enter coordinates", ask a second plain follow-up question for the value. Validate the reply — **reject any string containing `"`, `` ` ``, `\`, `$`, or newline** (shell-escape risk when we write to a sourced config file). If the user's reply is empty or invalid, fall back to "Skip" and tell them why. Coordinates should match `^-?[0-9]+(\.[0-9]+)?,-?[0-9]+(\.[0-9]+)?$` roughly; city names should be printable ASCII plus spaces, periods, hyphens, and apostrophes.
+
+If a non-empty, valid value was collected, write it into `~/.claude/statusline-config.sh`:
+
+```bash
+value="<validated user input — NO shell-metachars>"
+cfg="$HOME/.claude/statusline-config.sh"
+tmp=$(mktemp)
+if grep -qE '^[[:space:]]*export WEATHER_COORDS=' "$cfg"; then
+  # Already uncommented — confirm overwrite with the user before replacing.
+  sed -E "s|^([[:space:]]*export WEATHER_COORDS=).*|\1\"${value}\"|" "$cfg" > "$tmp" && mv "$tmp" "$cfg"
+elif grep -qE '^[[:space:]]*#[[:space:]]*export WEATHER_COORDS=' "$cfg"; then
+  # Uncomment the template line and set the value.
+  sed -E "s|^[[:space:]]*#[[:space:]]*export WEATHER_COORDS=.*|export WEATHER_COORDS=\"${value}\"|" "$cfg" > "$tmp" && mv "$tmp" "$cfg"
+else
+  printf '\nexport WEATHER_COORDS="%s"\n' "$value" >> "$cfg"
+fi
+```
+
+If the config already had an active (uncommented) `WEATHER_COORDS` with a non-empty value, show the existing value and confirm overwrite before running the `sed` above.
+
+### 9. Print recap
+
+Print a compact summary (adapt the "Location" line based on what the user picked in step 8):
 
 ```
 Installed claude-statusline-builder.
-  • Script:  ~/.claude/statusline-command.sh
-  • Config:  ~/.claude/statusline-config.sh   (commented template — edit to customize)
-  • Backups: ~/.claude/backups/
+  • Script:   ~/.claude/statusline-command.sh
+  • Config:   ~/.claude/statusline-config.sh   (commented template — edit to customize)
+  • Location: <one of the following>
+               - Fixed: WEATHER_COORDS="<value>"
+               - Auto-detect via wttr.in (detected as "<wttr_ip_loc>")
+               - Skipped (config untouched)
+  • Backups:  ~/.claude/backups/
 
 Try it:
   /claude-statusline-builder:preview
@@ -80,7 +127,7 @@ Try it:
   /claude-statusline-builder:toggle minimal
 ```
 
-If you want guided configuration, suggest invoking the `statusline-builder` subagent: it walks through timezone, weather, language, providers, and cost in 4–8 questions.
+If you want guided configuration beyond location, suggest invoking the `statusline-builder` subagent: it walks through timezone, weather, language, providers, and cost in 4–8 questions.
 
 Do NOT echo admin API keys or any environment variables to chat output. The recap is the only thing the user should see from a normal install.
 
