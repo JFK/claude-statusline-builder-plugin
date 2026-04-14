@@ -982,6 +982,11 @@ if [ "$WEATHER_ENABLED" = "1" ] && [ "$WEATHER_FORECAST_ENABLED" = "1" ]; then
           # weather[0]=today, [1]=tomorrow, [2]=day-after; hourly[4] ≈ noon
           def noon(d): (d.hourly[4].weatherCode // d.hourly[0].weatherCode // "0");
           def rain(d): (d.hourly[4].chanceofrain // d.hourly[0].chanceofrain // "0");
+          # Today ☔% should reflect the whole day, not just the noon slot (see
+          # issue #19). Take the max chanceofrain across all of today hourly
+          # slots so an afternoon/evening rain forecast is not hidden by a dry
+          # noon reading.
+          def today_rain(d): ([d.hourly[]?.chanceofrain // "0" | tonumber] | max // 0 | tostring);
           [
             (.weather[0].mintempC // ""),
             (.weather[0].maxtempC // ""),
@@ -993,7 +998,7 @@ if [ "$WEATHER_ENABLED" = "1" ] && [ "$WEATHER_FORECAST_ENABLED" = "1" ]; then
             (.weather[2].mintempC // ""),
             (.weather[2].maxtempC // ""),
             (if (.weather|length) > 2 then rain(.weather[2]) else "" end),
-            (if (.weather|length) > 0 then rain(.weather[0]) else "" end)
+            (if (.weather|length) > 0 then today_rain(.weather[0]) else "" end)
           ] | @tsv
         ' 2>/dev/null > "${WEATHER_FORECAST_CACHE}.tmp" \
         && [ -s "${WEATHER_FORECAST_CACHE}.tmp" ] \

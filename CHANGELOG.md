@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **Today's `☔N%` now reflects the whole day, not just noon.** Previously
+  the weather line used a single-point noon snapshot (`hourly[4].chanceofrain`)
+  for today's rain probability, which hid afternoon/evening rain when noon
+  happened to be dry. Now takes the max `chanceofrain` across all of today's
+  hourly slots. Tomorrow and day-after forecasts keep the noon-snapshot
+  semantics unchanged — they summarize a whole day rather than tracking
+  conditions as they progress. (#19)
+
 ## [0.4.0](https://github.com/JFK/claude-statusline-builder-plugin/releases/tag/v0.4.0) — 2026-04-13
 
 ### Added
