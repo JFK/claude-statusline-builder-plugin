@@ -53,6 +53,12 @@
 # change slowly compared to the current-conditions row.
 # export WEATHER_FORECAST_ENABLED=1
 # export WEATHER_FORECAST_TTL=10800                 # 3 hours
+#
+# Location prefix on the weather row: 📍<city>. Name comes from wttr.in's
+# detected areaName; set WEATHER_LOCATION_LABEL to override (handy when
+# IP-detect picks the wrong city or WEATHER_COORDS is a bare lat/lon).
+# export WEATHER_LOCATION_ENABLED=1
+# export WEATHER_LOCATION_LABEL=""                  # e.g. "Tokyo"
 
 # ============ News ============
 # export NEWS_ENABLED=1
@@ -69,6 +75,14 @@
 # Cloudflare PoP filter (regex over IATA codes inside parens). Empty = global only.
 # export HEALTH_CLOUDFLARE_REGION_FILTER="NRT|KIX|FUK|OKA"   # Japanese PoPs
 # export HEALTH_CLOUDFLARE_REGION_FILTER="LAX|SJC|SEA|ORD"   # US west coast
+#
+# Cloudflare's top-level .status.indicator aggregates hundreds of PoPs
+# globally and is almost never "none", which leaves the cf dot stuck at
+# yellow/orange even when the user's region and global services are fine.
+# Default (0) derives the indicator from the filtered components (svc + any
+# PoPs matching HEALTH_CLOUDFLARE_REGION_FILTER), which reflects real impact.
+# Set to 1 to restore the old strict behavior.
+# export HEALTH_CLOUDFLARE_STRICT=0
 #
 # OpenAI components to render in the breakdown line (regex over full names):
 # export HEALTH_OPENAI_COMPONENTS="Embeddings|Fine-tuning|Audio|Images|Batch|Moderations"

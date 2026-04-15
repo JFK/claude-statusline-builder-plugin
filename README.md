@@ -84,6 +84,8 @@ Your overrides live in `~/.claude/statusline-config.sh` (sourced by the script o
 | `WEATHER_TTL` | `1800` | Seconds |
 | `WEATHER_FORECAST_ENABLED` | `1` | `0` drops the inline today min/max **and** the tomorrow + day-after forecast row |
 | `WEATHER_FORECAST_TTL` | `10800` | Seconds. Forecasts change slowly — 3h cache |
+| `WEATHER_LOCATION_ENABLED` | `1` | `0` drops the 📍`<city>` prefix on the weather row |
+| `WEATHER_LOCATION_LABEL` | *(empty)* | Override the auto-detected city name (e.g. `Tokyo`) |
 | `NEWS_ENABLED` | `1` | `0` disables Anthropic news rotation. Requires `python3` |
 | `NEWS_COUNT` | `5` | Cache N items, rotate one per render |
 | `NEWS_TITLE_MAX` | `72` | Truncate titles longer than N chars |
@@ -92,6 +94,7 @@ Your overrides live in `~/.claude/statusline-config.sh` (sourced by the script o
 | `HEALTH_TTL` | `300` | Seconds |
 | `HEALTH_PROVIDERS` | `anthropic github openai cloudflare` | Space-separated list. Drop providers you don't care about |
 | `HEALTH_CLOUDFLARE_REGION_FILTER` | *(empty)* | Regex over IATA codes, e.g. `NRT\|KIX\|FUK\|OKA` for Japanese PoPs |
+| `HEALTH_CLOUDFLARE_STRICT` | `0` | `0` derives the cf indicator from filtered components (svc + selected PoPs) — reflects real impact. `1` uses `.status.indicator` (noisy; includes every PoP worldwide) |
 | `HEALTH_OPENAI_COMPONENTS` | `Embeddings\|Fine-tuning\|Audio\|Images\|Batch\|Moderations` | Regex over full component names |
 | `COST_ENABLED` | `1` | `0` disables both monthly cost slots |
 | `COST_TTL` | `3600` | Seconds |

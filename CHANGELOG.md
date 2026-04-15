@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Location prefix on the weather row.** Weather row now begins with
+  📍`<city>`, where the city name is pulled from `wttr.in`'s detected
+  `nearest_area` (no extra HTTP call — reused from the existing forecast
+  JSON). Makes it obvious which location the weather is for, especially
+  when hopping between machines or when `WEATHER_COORDS` is a bare
+  lat/lon. New `WEATHER_LOCATION_ENABLED` (default `1`) and
+  `WEATHER_LOCATION_LABEL` (override string) env vars.
+
+### Changed
+- **Cloudflare health indicator is now less noisy.** The cf dot on the
+  model line previously tracked `summary.json`'s top-level
+  `.status.indicator`, which aggregates hundreds of PoPs worldwide and is
+  almost never `"none"` — leaving the dot stuck at yellow/orange even
+  when the user's region and global services were fine. The indicator is
+  now derived from the filtered components (the global "Sites and
+  Services" row plus any PoPs matching `HEALTH_CLOUDFLARE_REGION_FILTER`),
+  which reflects real user-visible impact. New `HEALTH_CLOUDFLARE_STRICT`
+  env var (default `0`) restores the old behavior when set to `1`.
+
 ## [v0.4.2](https://github.com/JFK/claude-statusline-builder-plugin/releases/tag/v0.4.2) — 2026-04-14
 
 ## [v0.4.1](https://github.com/JFK/claude-statusline-builder-plugin/releases/tag/v0.4.1) — 2026-04-14

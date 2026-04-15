@@ -47,6 +47,8 @@ fi
 : "${WEATHER_TTL:=1800}"
 : "${WEATHER_FORECAST_ENABLED:=1}"          # 0 to skip the today min/max + tomorrow/day-after forecast row
 : "${WEATHER_FORECAST_TTL:=10800}"          # forecast changes slowly — 3h cache
+: "${WEATHER_LOCATION_ENABLED:=1}"
+: "${WEATHER_LOCATION_LABEL:=}"             # non-empty overrides wttr.in's detected areaName
 
 # News (anthropic.com/news, scraped via python3 if available)
 : "${NEWS_ENABLED:=1}"
@@ -59,6 +61,7 @@ fi
 : "${HEALTH_TTL:=300}"
 : "${HEALTH_PROVIDERS:=anthropic github openai cloudflare}"
 : "${HEALTH_CLOUDFLARE_REGION_FILTER:=}"    # e.g. 'NRT|KIX|FUK|OKA' to keep specific PoPs
+: "${HEALTH_CLOUDFLARE_STRICT:=0}"          # 1 = use .status.indicator directly (see sample config for rationale)
 : "${HEALTH_OPENAI_COMPONENTS:=Embeddings|Fine-tuning|Audio|Images|Batch|Moderations}"
 
 # Monthly cost (admin APIs — slot is OMITTED if matching key is unset)
@@ -611,8 +614,6 @@ if [ "$HEALTH_ENABLED" = "1" ] && in_providers cloudflare; then
     (
       summary=$(curl -fsS -L --max-time 4 "https://www.cloudflarestatus.com/api/v2/summary.json" 2>/dev/null)
       if [ -n "$summary" ]; then
-        echo "$summary" | jq -r '.status.indicator // "unknown"' \
-          > "${CF_HEALTH_CACHE}.tmp" && mv "${CF_HEALTH_CACHE}.tmp" "$CF_HEALTH_CACHE"
         # Always include the global services row; if the user set a region
         # filter, also include any PoP whose name contains an IATA code from
         # the regex.
@@ -627,6 +628,29 @@ if [ "$HEALTH_ENABLED" = "1" ] && in_providers cloudflare; then
               | gsub("^.*\\(([A-Z]{3})\\)$"; "\\1")
             ) + "\t" + .status' \
           > "${CF_COMP_CACHE}.tmp" && mv "${CF_COMP_CACHE}.tmp" "$CF_COMP_CACHE"
+        # Default: derive the cf indicator from the filtered components, not
+        # .status.indicator (which aggregates every PoP globally and is almost
+        # never "none"). See statusline-config.sample.sh for rationale.
+        if [ "${HEALTH_CLOUDFLARE_STRICT:-0}" = "1" ]; then
+          cf_ind_jq='.status.indicator // "unknown"'
+        else
+          cf_ind_jq='
+            def rank:
+              {operational:0, under_maintenance:1, degraded_performance:2, partial_outage:3, major_outage:4};
+            def to_ind:
+              {operational:"none", degraded_performance:"minor", partial_outage:"major",
+               major_outage:"critical", under_maintenance:"maintenance"}[.] // "unknown";
+            ([.components[]
+              | select(
+                  .name == "Cloudflare Sites and Services"
+                  or ($regions != "" and (.name | test("\\((" + $regions + ")\\)")))
+                )
+              | .status] // [])
+            | (max_by(rank[.] // 0) // "operational")
+            | to_ind'
+        fi
+        echo "$summary" | jq -r --arg regions "$HEALTH_CLOUDFLARE_REGION_FILTER" "$cf_ind_jq" \
+          > "${CF_HEALTH_CACHE}.tmp" && mv "${CF_HEALTH_CACHE}.tmp" "$CF_HEALTH_CACHE"
       fi
     ) >/dev/null 2>&1 & disown
   fi
@@ -998,7 +1022,8 @@ if [ "$WEATHER_ENABLED" = "1" ] && [ "$WEATHER_FORECAST_ENABLED" = "1" ]; then
             (.weather[2].mintempC // ""),
             (.weather[2].maxtempC // ""),
             (if (.weather|length) > 2 then rain(.weather[2]) else "" end),
-            (if (.weather|length) > 0 then today_rain(.weather[0]) else "" end)
+            (if (.weather|length) > 0 then today_rain(.weather[0]) else "" end),
+            (.nearest_area[0].areaName[0].value // "")
           ] | @tsv
         ' 2>/dev/null > "${WEATHER_FORECAST_CACHE}.tmp" \
         && [ -s "${WEATHER_FORECAST_CACHE}.tmp" ] \
@@ -1009,7 +1034,7 @@ if [ "$WEATHER_ENABLED" = "1" ] && [ "$WEATHER_FORECAST_ENABLED" = "1" ]; then
     IFS=$'\t' read -r f_today_min f_today_max \
                        f_tom_em f_tom_min f_tom_max f_tom_rain \
                        f_day_em f_day_min f_day_max f_day_rain \
-                       f_today_rain \
+                       f_today_rain f_area \
       < <(tr -d '\n' < "$WEATHER_FORECAST_CACHE")
     if [ -n "$f_today_min" ] && [ -n "$f_today_max" ]; then
       if [ -n "$f_today_rain" ]; then
@@ -1043,7 +1068,17 @@ fi
 
 # Assemble the current-weather row (now with today min/max appended after temp)
 if [ -n "${w_temp:-}" ]; then
-  weather_part="${w_cond}${w_temp}${today_minmax_part}${STATUSLINE_FIELD_SEP}💧${w_hum}${STATUSLINE_FIELD_SEP}💨${w_wind}${STATUSLINE_FIELD_SEP}💦${w_prec}${STATUSLINE_FIELD_SEP}🧭${w_pres}${STATUSLINE_FIELD_SEP}${w_moon}${STATUSLINE_FIELD_SEP}🌅${w_rise}${STATUSLINE_FIELD_SEP}🌇${w_set}"
+  loc_prefix=""
+  if [ "$WEATHER_LOCATION_ENABLED" = "1" ]; then
+    loc_name="${WEATHER_LOCATION_LABEL:-${f_area:-}}"
+    # wttr.in's IP-detect sometimes returns coord-derived placeholders
+    # (e.g. "100", "35.6", "139-1") instead of a city. Drop anything that
+    # leads with a digit; user can opt in via WEATHER_LOCATION_LABEL.
+    if [ -n "$loc_name" ] && ! [[ "$loc_name" =~ ^[0-9] ]]; then
+      loc_prefix="📍${loc_name}${STATUSLINE_FIELD_SEP}"
+    fi
+  fi
+  weather_part="${loc_prefix}${w_cond}${w_temp}${today_minmax_part}${STATUSLINE_FIELD_SEP}💧${w_hum}${STATUSLINE_FIELD_SEP}💨${w_wind}${STATUSLINE_FIELD_SEP}💦${w_prec}${STATUSLINE_FIELD_SEP}🧭${w_pres}${STATUSLINE_FIELD_SEP}${w_moon}${STATUSLINE_FIELD_SEP}🌅${w_rise}${STATUSLINE_FIELD_SEP}🌇${w_set}"
 fi
 
 # ----- Background fetch: Anthropic news -----

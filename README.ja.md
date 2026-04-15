@@ -84,6 +84,8 @@ jfk@laptop:claude-statusline-builder-plugin (main ●2 ↑1 🟢ci)
 | `WEATHER_TTL` | `1800` | 秒 |
 | `WEATHER_FORECAST_ENABLED` | `1` | `0` で今日の最低/最高気温 **と** 明日/明後日の予報行を両方無効化 |
 | `WEATHER_FORECAST_TTL` | `10800` | 秒。予報は変化が遅いので 3h キャッシュ |
+| `WEATHER_LOCATION_ENABLED` | `1` | `0` で天気行先頭の 📍`<都市名>` プレフィックスを抑制 |
+| `WEATHER_LOCATION_LABEL` | *(空)* | 自動検出された都市名を上書き（例: `Tokyo`） |
 | `NEWS_ENABLED` | `1` | `0` で Anthropic ニュース無効。`python3` 必須 |
 | `NEWS_COUNT` | `5` | キャッシュ件数、レンダリングごとに 1 件ローテーション |
 | `NEWS_TITLE_MAX` | `72` | N 文字より長いタイトルを切り詰め |
@@ -92,6 +94,7 @@ jfk@laptop:claude-statusline-builder-plugin (main ●2 ↑1 🟢ci)
 | `HEALTH_TTL` | `300` | 秒 |
 | `HEALTH_PROVIDERS` | `anthropic github openai cloudflare` | スペース区切りリスト。不要なプロバイダは外せます |
 | `HEALTH_CLOUDFLARE_REGION_FILTER` | *(空)* | IATA コードの正規表現、例: `NRT\|KIX\|FUK\|OKA` (日本の PoP) |
+| `HEALTH_CLOUDFLARE_STRICT` | `0` | `0` はフィルタ後コンポーネント（svc + 指定PoP）の最悪ステータスから cf インジケーターを導出。`1` は `.status.indicator`（世界中のPoPを集約するため騒がしい） |
 | `HEALTH_OPENAI_COMPONENTS` | `Embeddings\|Fine-tuning\|Audio\|Images\|Batch\|Moderations` | コンポーネント名の正規表現 |
 | `COST_ENABLED` | `1` | `0` で月額コスト両スロット無効 |
 | `COST_TTL` | `3600` | 秒 |
