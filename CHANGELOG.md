@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [v0.5.0](https://github.com/JFK/claude-statusline-builder-plugin/releases/tag/v0.5.0) — 2026-04-15
 
 ### Added
 - **Location prefix on the weather row.** Weather row now begins with
