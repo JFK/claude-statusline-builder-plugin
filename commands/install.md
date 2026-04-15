@@ -81,31 +81,97 @@ Then use the `AskUserQuestion` tool with:
 - Question body: `wttr.in IP-detected: "${wttr_ip_loc:-unavailable}". This may be wrong on WSL2/VPN/cloud-shell — the egress IP often resolves to a datacenter city, not where you actually are. Pick a fixed location if the detected one is wrong.`
 - Options:
   - `Use IP auto-detect` — description: `Keep WEATHER_COORDS empty; wttr.in picks the city from your egress IP on every fetch.`
-  - `Enter city name` — description: `e.g. "San Francisco", "Berlin", "Tokyo". Writes WEATHER_COORDS to the config.`
+  - `Enter city name` — description: `e.g. "San Francisco", "Berlin", "Tokyo". Writes WEATHER_COORDS and WEATHER_LOCATION_LABEL (so the 📍 prefix shows the same name you typed, not wttr's nearest_area subdivision).`
   - `Enter coordinates` — description: `e.g. "37.7749,-122.4194". Most precise; always resolves the same place.`
   - `Skip` — description: `Leave the config untouched. You can edit ~/.claude/statusline-config.sh later or rerun install.`
 - `multiSelect: false`
 
-If the user picks "Enter city name" or "Enter coordinates", ask a second plain follow-up question for the value. Validate the reply — **reject any string containing `"`, `` ` ``, `\`, `$`, or newline** (shell-escape risk when we write to a sourced config file). If the user's reply is empty or invalid, fall back to "Skip" and tell them why. Coordinates should match `^-?[0-9]+(\.[0-9]+)?,-?[0-9]+(\.[0-9]+)?$` roughly; city names should be printable ASCII plus spaces, periods, hyphens, and apostrophes.
+If the user picks "Enter city name" or "Enter coordinates", ask a second plain follow-up question for the value. Track which option was picked as `mode` (`city` or `coords`) — this drives the label-write decision below. Validate the reply — **reject any string containing `"`, `` ` ``, `\`, `$`, `|`, `&`, or newline** (`"`, `` ` ``, `\`, `$`, and newline are shell-interpolation risks when we write to a sourced config file; `|` is the `sed` delimiter and `&` expands to the whole match in `sed` replacement text). If the user's reply is empty or invalid, fall back to "Skip" and tell them why. Coordinates should match `^-?[0-9]+(\.[0-9]+)?,-?[0-9]+(\.[0-9]+)?$` roughly; city names should be printable ASCII plus spaces, periods, hyphens, and apostrophes.
 
-If a non-empty, valid value was collected, write it into `~/.claude/statusline-config.sh`:
+If a non-empty, valid value was collected, write it into `~/.claude/statusline-config.sh`. The validation above already rejects every character that would need escaping in either `sed` or a shell double-quoted assignment, so the helpers below do no further escaping.
+
+The flow has two parts: (a) reusable shell helpers that perform the read and the write, and (b) a per-variable orchestration step where `AskUserQuestion` lives **outside** the shell because the harness invokes it as a tool, not from bash. Drive `WEATHER_COORDS` through the orchestration step always, and `WEATHER_LOCATION_LABEL` only when `mode == "city"`.
+
+**Reusable shell helpers** (safe to run as-is — they do no I/O beyond reading/writing the config file):
 
 ```bash
-value="<validated user input — NO shell-metachars>"
 cfg="$HOME/.claude/statusline-config.sh"
-tmp=$(mktemp)
-if grep -qE '^[[:space:]]*export WEATHER_COORDS=' "$cfg"; then
-  # Already uncommented — confirm overwrite with the user before replacing.
-  sed -E "s|^([[:space:]]*export WEATHER_COORDS=).*|\1\"${value}\"|" "$cfg" > "$tmp" && mv "$tmp" "$cfg"
-elif grep -qE '^[[:space:]]*#[[:space:]]*export WEATHER_COORDS=' "$cfg"; then
-  # Uncomment the template line and set the value.
-  sed -E "s|^[[:space:]]*#[[:space:]]*export WEATHER_COORDS=.*|export WEATHER_COORDS=\"${value}\"|" "$cfg" > "$tmp" && mv "$tmp" "$cfg"
-else
-  printf '\nexport WEATHER_COORDS="%s"\n' "$value" >> "$cfg"
-fi
+
+# Upsert one WEATHER_* variable. Three branches:
+#   - active uncommented line  → in-place sed replace
+#   - commented template line  → in-place sed uncomment + set
+#   - neither                  → append a fresh export
+# `tmp` is created lazily inside the sed branches so the append branch
+# doesn't leak an empty file.
+upsert_weather() {
+  local var=$1 val=$2 tmp
+  if grep -qE "^[[:space:]]*export ${var}=" "$cfg"; then
+    tmp=$(mktemp)
+    sed -E "s|^([[:space:]]*export ${var}=).*|\\1\"${val}\"|" "$cfg" > "$tmp" && mv "$tmp" "$cfg"
+  elif grep -qE "^[[:space:]]*#[[:space:]]*export ${var}=" "$cfg"; then
+    tmp=$(mktemp)
+    sed -E "s|^[[:space:]]*#[[:space:]]*export ${var}=.*|export ${var}=\"${val}\"|" "$cfg" > "$tmp" && mv "$tmp" "$cfg"
+  else
+    printf '\nexport %s="%s"\n' "$var" "$val" >> "$cfg"
+  fi
+}
+
+# Fail-closed gate: returns 0 iff an *active* (uncommented) `export VAR=` line
+# exists, regardless of quoting style. Used to decide whether to prompt for
+# overwrite even when the value can't be cleanly parsed.
+has_active_weather_export() {
+  local var=$1
+  awk -v var="$var" '
+    $0 ~ ("^[[:space:]]*export[[:space:]]+" var "=") { found=1; exit }
+    END { exit(found ? 0 : 1) }
+  ' "$cfg"
+}
+
+# Best-effort read of the currently-active value. Strips `export VAR=` then
+# trims one matching layer of surrounding ' or " quotes. Empty output does
+# *not* mean "unset" — pair with has_active_weather_export when you need to
+# distinguish "unset" from "set but unparseable".
+get_active_weather_value() {
+  local var=$1
+  awk -v var="$var" '
+    function trim(s) { sub(/^[[:space:]]+/, "", s); sub(/[[:space:]]+$/, "", s); return s }
+    $0 ~ ("^[[:space:]]*export[[:space:]]+" var "=") {
+      line = $0
+      sub("^[[:space:]]*export[[:space:]]+" var "=", "", line)
+      line = trim(line)
+      if (line ~ /^".*"$/ || line ~ /^'\''.*'\''$/) {
+        line = substr(line, 2, length(line) - 2)
+      }
+      print line
+      exit
+    }' "$cfg"
+}
 ```
 
-If the config already had an active (uncommented) `WEATHER_COORDS` with a non-empty value, show the existing value and confirm overwrite before running the `sed` above.
+**Per-variable orchestration** — pseudocode, since `AskUserQuestion` is a harness tool, not a shell command. Drive each variable through this flow:
+
+```text
+PSEUDOCODE — do not run as bash. The harness performs each step in turn.
+
+  for var in selected_vars:                      # WEATHER_COORDS, +WEATHER_LOCATION_LABEL if mode=city
+    existing_value = get_active_weather_value(var)
+    if has_active_weather_export(var) and existing_value != value:
+      msg = "Overwrite " + var
+      if existing_value is non-empty:
+        msg += " (currently \"" + existing_value + "\")"
+      else:
+        msg += " (currently set, value not parseable)"
+      msg += " with \"" + value + "\"?"
+
+      answer = AskUserQuestion(msg, ["Yes, overwrite", "No, keep existing"])
+      if answer != "Yes, overwrite":
+        report "kept existing " + var
+        continue          # skip this var
+
+    upsert_weather(var, value)
+```
+
+`mode == "city"` is the only condition under which `WEATHER_LOCATION_LABEL` is in `selected_vars` — `mode == "coords"` writes only `WEATHER_COORDS` (a bare lat/lon shouldn't pin a display name; let `nearest_area` auto-detect, with the existing numeric-guard fallback in the script).
 
 ### 9. Print recap
 
@@ -116,7 +182,8 @@ Installed claude-statusline-builder.
   • Script:   ~/.claude/statusline-command.sh
   • Config:   ~/.claude/statusline-config.sh   (commented template — edit to customize)
   • Location: <one of the following>
-               - Fixed: WEATHER_COORDS="<value>"
+               - Fixed (city): WEATHER_COORDS="<value>" + WEATHER_LOCATION_LABEL="<value>"
+               - Fixed (coords): WEATHER_COORDS="<value>"
                - Auto-detect via wttr.in (detected as "<wttr_ip_loc>")
                - Skipped (config untouched)
   • Backups:  ~/.claude/backups/
