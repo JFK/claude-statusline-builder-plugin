@@ -86,12 +86,13 @@ Then use the `AskUserQuestion` tool with:
   - `Skip` — description: `Leave the config untouched. You can edit ~/.claude/statusline-config.sh later or rerun install.`
 - `multiSelect: false`
 
-If the user picks "Enter city name" or "Enter coordinates", ask a second plain follow-up question for the value. Validate the reply — **reject any string containing `"`, `` ` ``, `\`, `$`, or newline** (shell-escape risk when we write to a sourced config file). If the user's reply is empty or invalid, fall back to "Skip" and tell them why. Coordinates should match `^-?[0-9]+(\.[0-9]+)?,-?[0-9]+(\.[0-9]+)?$` roughly; city names should be printable ASCII plus spaces, periods, hyphens, and apostrophes.
+If the user picks "Enter city name" or "Enter coordinates", ask a second plain follow-up question for the value. Track which option was picked as `mode` (`city` or `coords`) — this drives the label-write decision below. Validate the reply — **reject any string containing `"`, `` ` ``, `\`, `$`, `|`, `&`, or newline** (the first five are shell-escape risks when we write to a sourced config file; `|` is the `sed` delimiter and `&` expands to the whole match in `sed` replacement text). If the user's reply is empty or invalid, fall back to "Skip" and tell them why. Coordinates should match `^-?[0-9]+(\.[0-9]+)?,-?[0-9]+(\.[0-9]+)?$` roughly; city names should be printable ASCII plus spaces, periods, hyphens, and apostrophes.
 
-If a non-empty, valid value was collected, write it into `~/.claude/statusline-config.sh`. Use a small helper to upsert any `WEATHER_*` variable so the same logic handles both `WEATHER_COORDS` and (for city-name mode) `WEATHER_LOCATION_LABEL`:
+If a non-empty, valid value was collected, write it into `~/.claude/statusline-config.sh`. Use a small helper to upsert any `WEATHER_*` variable so the same logic handles both `WEATHER_COORDS` and (for city-name mode) `WEATHER_LOCATION_LABEL`. The validation above already rejects every character that would need escaping in either `sed` or a shell double-quoted assignment, so the helper does no further escaping:
 
 ```bash
-value="<validated user input — NO shell-metachars>"
+value="<validated user input — NO shell-metachars; rejected set above guarantees safe sed/shell interpolation>"
+mode="<one of: city | coords>"
 cfg="$HOME/.claude/statusline-config.sh"
 
 upsert_weather() {
@@ -106,16 +107,43 @@ upsert_weather() {
   fi
 }
 
-upsert_weather WEATHER_COORDS "$value"
+# Read the currently-active value (if any) of an export, so we can prompt for
+# overwrite confirmation before clobbering it.
+get_active_weather_value() {
+  local var=$1
+  awk -F'"' -v var="$var" '
+    $0 ~ ("^[[:space:]]*export " var "=") {
+      if (NF >= 2) print $2
+      exit
+    }' "$cfg"
+}
+
+# Per-var write with overwrite confirmation. Confirm via AskUserQuestion when
+# the var is already set to a non-empty value; skip the write if the user
+# declines.
+write_with_confirm() {
+  local var=$1 val=$2 existing
+  existing=$(get_active_weather_value "$var")
+  if [ -n "$existing" ] && [ "$existing" != "$val" ]; then
+    # AskUserQuestion: "Overwrite $var (currently \"$existing\") with \"$val\"?"
+    # → yes / no. Set confirm=yes|no based on the answer.
+    if [ "$confirm" != "yes" ]; then
+      echo "kept existing $var=\"$existing\""
+      return 0
+    fi
+  fi
+  upsert_weather "$var" "$val"
+}
+
+write_with_confirm WEATHER_COORDS "$value"
+
 # City-name mode only: also pin the display label, since wttr.in's
 # nearest_area can resolve a city query to a smaller subdivision
 # (e.g. "Kumamoto" → "Matsuai") which the 📍 prefix would otherwise show.
 if [ "$mode" = "city" ]; then
-  upsert_weather WEATHER_LOCATION_LABEL "$value"
+  write_with_confirm WEATHER_LOCATION_LABEL "$value"
 fi
 ```
-
-If the config already had an active (uncommented) `WEATHER_COORDS` with a non-empty value, show the existing value and confirm overwrite before running the upsert above. The same confirmation applies to `WEATHER_LOCATION_LABEL` when city-name mode is selected.
 
 ### 9. Print recap
 
