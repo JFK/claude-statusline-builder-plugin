@@ -78,16 +78,21 @@ jobs:
 
       - name: Toggle flag-file path (minimal via flag, not env)
         run: |
+          # Distinguish modes by content, not line count: on a fresh CI cache
+          # both modes can render exactly 4 lines (detail = line1+model+billing+
+          # datetime before background weather/news fetches finish), so the old
+          # `-gt 4` assertion was timing-flaky on faster runners.
           mkdir -p ~/.claude/cache
           : > ~/.claude/cache/statusline-minimal
           out=$(cat scripts/preview-fixture.json | bash scripts/statusline-command.sh)
           echo "$out"
-          lines=$(echo "$out" | wc -l)
-          test "$lines" -eq 4 || { echo "FAIL: flag-file minimal mode produced $lines lines, expected 4"; exit 1; }
+          echo "$out" | tail -1 | grep -qE '^─+$' \
+            || { echo "FAIL: minimal mode last line should be border"; exit 1; }
           rm -f ~/.claude/cache/statusline-minimal
           out=$(cat scripts/preview-fixture.json | bash scripts/statusline-command.sh)
-          lines=$(echo "$out" | wc -l)
-          test "$lines" -gt 4 || { echo "FAIL: flag absent should produce >4 lines, got $lines"; exit 1; }
+          echo "$out"
+          echo "$out" | grep -qE '^🕐 ' \
+            || { echo "FAIL: detail mode missing datetime line"; exit 1; }
           echo "PASS"
 
       - name: Install/uninstall sandbox (round-trip)
