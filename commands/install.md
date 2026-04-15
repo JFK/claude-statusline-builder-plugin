@@ -81,7 +81,7 @@ Then use the `AskUserQuestion` tool with:
 - Question body: `wttr.in IP-detected: "${wttr_ip_loc:-unavailable}". This may be wrong on WSL2/VPN/cloud-shell — the egress IP often resolves to a datacenter city, not where you actually are. Pick a fixed location if the detected one is wrong.`
 - Options:
   - `Use IP auto-detect` — description: `Keep WEATHER_COORDS empty; wttr.in picks the city from your egress IP on every fetch.`
-  - `Enter city name` — description: `e.g. "San Francisco", "Berlin", "Tokyo". Writes WEATHER_COORDS *and* WEATHER_LOCATION_LABEL (so the 📍 prefix shows the same name you typed, not wttr's nearest_area subdivision).`
+  - `Enter city name` — description: `e.g. "San Francisco", "Berlin", "Tokyo". Writes WEATHER_COORDS and WEATHER_LOCATION_LABEL (so the 📍 prefix shows the same name you typed, not wttr's nearest_area subdivision).`
   - `Enter coordinates` — description: `e.g. "37.7749,-122.4194". Most precise; always resolves the same place.`
   - `Skip` — description: `Leave the config untouched. You can edit ~/.claude/statusline-config.sh later or rerun install.`
 - `multiSelect: false`
