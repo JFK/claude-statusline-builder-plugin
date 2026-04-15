@@ -86,7 +86,7 @@ Then use the `AskUserQuestion` tool with:
   - `Skip` — description: `Leave the config untouched. You can edit ~/.claude/statusline-config.sh later or rerun install.`
 - `multiSelect: false`
 
-If the user picks "Enter city name" or "Enter coordinates", ask a second plain follow-up question for the value. Track which option was picked as `mode` (`city` or `coords`) — this drives the label-write decision below. Validate the reply — **reject any string containing `"`, `` ` ``, `\`, `$`, `|`, `&`, or newline** (the first five are shell-escape risks when we write to a sourced config file; `|` is the `sed` delimiter and `&` expands to the whole match in `sed` replacement text). If the user's reply is empty or invalid, fall back to "Skip" and tell them why. Coordinates should match `^-?[0-9]+(\.[0-9]+)?,-?[0-9]+(\.[0-9]+)?$` roughly; city names should be printable ASCII plus spaces, periods, hyphens, and apostrophes.
+If the user picks "Enter city name" or "Enter coordinates", ask a second plain follow-up question for the value. Track which option was picked as `mode` (`city` or `coords`) — this drives the label-write decision below. Validate the reply — **reject any string containing `"`, `` ` ``, `\`, `$`, `|`, `&`, or newline** (`"`, `` ` ``, `\`, `$`, and newline are shell-interpolation risks when we write to a sourced config file; `|` is the `sed` delimiter and `&` expands to the whole match in `sed` replacement text). If the user's reply is empty or invalid, fall back to "Skip" and tell them why. Coordinates should match `^-?[0-9]+(\.[0-9]+)?,-?[0-9]+(\.[0-9]+)?$` roughly; city names should be printable ASCII plus spaces, periods, hyphens, and apostrophes.
 
 If a non-empty, valid value was collected, write it into `~/.claude/statusline-config.sh`. Use a small helper to upsert any `WEATHER_*` variable so the same logic handles both `WEATHER_COORDS` and (for city-name mode) `WEATHER_LOCATION_LABEL`. The validation above already rejects every character that would need escaping in either `sed` or a shell double-quoted assignment, so the helper does no further escaping:
 
@@ -120,13 +120,17 @@ get_active_weather_value() {
 
 # Per-var write with overwrite confirmation. Confirm via AskUserQuestion when
 # the var is already set to a non-empty value; skip the write if the user
-# declines.
+# declines. `confirm` is local with a "no" default so an unanswered prompt
+# fails closed (we keep the existing value rather than silently clobbering it).
 write_with_confirm() {
-  local var=$1 val=$2 existing
+  local var=$1 val=$2 existing confirm="no"
   existing=$(get_active_weather_value "$var")
   if [ -n "$existing" ] && [ "$existing" != "$val" ]; then
     # AskUserQuestion: "Overwrite $var (currently \"$existing\") with \"$val\"?"
-    # → yes / no. Set confirm=yes|no based on the answer.
+    # Map the answer: "Yes, overwrite" → confirm="yes"; anything else → "no".
+    # Example (replace with the harness's actual AskUserQuestion call):
+    #   answer=$(ask "Overwrite $var (currently \"$existing\") with \"$val\"?" "Yes, overwrite" "No, keep existing")
+    #   case "$answer" in "Yes, overwrite") confirm="yes" ;; *) confirm="no" ;; esac
     if [ "$confirm" != "yes" ]; then
       echo "kept existing $var=\"$existing\""
       return 0
