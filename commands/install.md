@@ -88,66 +88,89 @@ Then use the `AskUserQuestion` tool with:
 
 If the user picks "Enter city name" or "Enter coordinates", ask a second plain follow-up question for the value. Track which option was picked as `mode` (`city` or `coords`) — this drives the label-write decision below. Validate the reply — **reject any string containing `"`, `` ` ``, `\`, `$`, `|`, `&`, or newline** (`"`, `` ` ``, `\`, `$`, and newline are shell-interpolation risks when we write to a sourced config file; `|` is the `sed` delimiter and `&` expands to the whole match in `sed` replacement text). If the user's reply is empty or invalid, fall back to "Skip" and tell them why. Coordinates should match `^-?[0-9]+(\.[0-9]+)?,-?[0-9]+(\.[0-9]+)?$` roughly; city names should be printable ASCII plus spaces, periods, hyphens, and apostrophes.
 
-If a non-empty, valid value was collected, write it into `~/.claude/statusline-config.sh`. Use a small helper to upsert any `WEATHER_*` variable so the same logic handles both `WEATHER_COORDS` and (for city-name mode) `WEATHER_LOCATION_LABEL`. The validation above already rejects every character that would need escaping in either `sed` or a shell double-quoted assignment, so the helper does no further escaping:
+If a non-empty, valid value was collected, write it into `~/.claude/statusline-config.sh`. The validation above already rejects every character that would need escaping in either `sed` or a shell double-quoted assignment, so the helpers below do no further escaping.
+
+The flow has two parts: (a) reusable shell helpers that perform the read and the write, and (b) a per-variable orchestration step where `AskUserQuestion` lives **outside** the shell because the harness invokes it as a tool, not from bash. Drive `WEATHER_COORDS` through the orchestration step always, and `WEATHER_LOCATION_LABEL` only when `mode == "city"`.
+
+**Reusable shell helpers** (safe to run as-is — they do no I/O beyond reading/writing the config file):
 
 ```bash
-value="<validated user input — NO shell-metachars; rejected set above guarantees safe sed/shell interpolation>"
-mode="<one of: city | coords>"
 cfg="$HOME/.claude/statusline-config.sh"
 
+# Upsert one WEATHER_* variable. Three branches:
+#   - active uncommented line  → in-place sed replace
+#   - commented template line  → in-place sed uncomment + set
+#   - neither                  → append a fresh export
+# `tmp` is created lazily inside the sed branches so the append branch
+# doesn't leak an empty file.
 upsert_weather() {
   local var=$1 val=$2 tmp
-  tmp=$(mktemp)
   if grep -qE "^[[:space:]]*export ${var}=" "$cfg"; then
+    tmp=$(mktemp)
     sed -E "s|^([[:space:]]*export ${var}=).*|\\1\"${val}\"|" "$cfg" > "$tmp" && mv "$tmp" "$cfg"
   elif grep -qE "^[[:space:]]*#[[:space:]]*export ${var}=" "$cfg"; then
+    tmp=$(mktemp)
     sed -E "s|^[[:space:]]*#[[:space:]]*export ${var}=.*|export ${var}=\"${val}\"|" "$cfg" > "$tmp" && mv "$tmp" "$cfg"
   else
     printf '\nexport %s="%s"\n' "$var" "$val" >> "$cfg"
   fi
 }
 
-# Read the currently-active value (if any) of an export, so we can prompt for
-# overwrite confirmation before clobbering it.
+# Fail-closed gate: returns 0 iff an *active* (uncommented) `export VAR=` line
+# exists, regardless of quoting style. Used to decide whether to prompt for
+# overwrite even when the value can't be cleanly parsed.
+has_active_weather_export() {
+  local var=$1
+  awk -v var="$var" '
+    $0 ~ ("^[[:space:]]*export[[:space:]]+" var "=") { found=1; exit }
+    END { exit(found ? 0 : 1) }
+  ' "$cfg"
+}
+
+# Best-effort read of the currently-active value. Strips `export VAR=` then
+# trims one matching layer of surrounding ' or " quotes. Empty output does
+# *not* mean "unset" — pair with has_active_weather_export when you need to
+# distinguish "unset" from "set but unparseable".
 get_active_weather_value() {
   local var=$1
-  awk -F'"' -v var="$var" '
-    $0 ~ ("^[[:space:]]*export " var "=") {
-      if (NF >= 2) print $2
+  awk -v var="$var" '
+    function trim(s) { sub(/^[[:space:]]+/, "", s); sub(/[[:space:]]+$/, "", s); return s }
+    $0 ~ ("^[[:space:]]*export[[:space:]]+" var "=") {
+      line = $0
+      sub("^[[:space:]]*export[[:space:]]+" var "=", "", line)
+      line = trim(line)
+      if (line ~ /^".*"$/ || line ~ /^'\''.*'\''$/) {
+        line = substr(line, 2, length(line) - 2)
+      }
+      print line
       exit
     }' "$cfg"
 }
-
-# Per-var write with overwrite confirmation. Confirm via AskUserQuestion when
-# the var is already set to a non-empty value; skip the write if the user
-# declines. `confirm` is local with a "no" default so an unanswered prompt
-# fails closed (we keep the existing value rather than silently clobbering it).
-write_with_confirm() {
-  local var=$1 val=$2 existing confirm="no"
-  existing=$(get_active_weather_value "$var")
-  if [ -n "$existing" ] && [ "$existing" != "$val" ]; then
-    # AskUserQuestion: "Overwrite $var (currently \"$existing\") with \"$val\"?"
-    # Map the answer: "Yes, overwrite" → confirm="yes"; anything else → "no".
-    # Example (replace with the harness's actual AskUserQuestion call):
-    #   answer=$(ask "Overwrite $var (currently \"$existing\") with \"$val\"?" "Yes, overwrite" "No, keep existing")
-    #   case "$answer" in "Yes, overwrite") confirm="yes" ;; *) confirm="no" ;; esac
-    if [ "$confirm" != "yes" ]; then
-      echo "kept existing $var=\"$existing\""
-      return 0
-    fi
-  fi
-  upsert_weather "$var" "$val"
-}
-
-write_with_confirm WEATHER_COORDS "$value"
-
-# City-name mode only: also pin the display label, since wttr.in's
-# nearest_area can resolve a city query to a smaller subdivision
-# (e.g. "Kumamoto" → "Matsuai") which the 📍 prefix would otherwise show.
-if [ "$mode" = "city" ]; then
-  write_with_confirm WEATHER_LOCATION_LABEL "$value"
-fi
 ```
+
+**Per-variable orchestration** — pseudocode, since `AskUserQuestion` is a harness tool, not a shell command. Drive each variable through this flow:
+
+```text
+PSEUDOCODE — do not run as bash. The harness performs each step in turn.
+
+  for var in selected_vars:                      # WEATHER_COORDS, +WEATHER_LOCATION_LABEL if mode=city
+    if has_active_weather_export(var) and get_active_weather_value(var) != value:
+      msg = "Overwrite " + var
+      if existing_value is non-empty:
+        msg += " (currently \"" + existing_value + "\")"
+      else:
+        msg += " (currently set, value not parseable)"
+      msg += " with \"" + value + "\"?"
+
+      answer = AskUserQuestion(msg, ["Yes, overwrite", "No, keep existing"])
+      if answer != "Yes, overwrite":
+        report "kept existing " + var
+        continue          # skip this var
+
+    upsert_weather(var, value)
+```
+
+`mode == "city"` is the only condition under which `WEATHER_LOCATION_LABEL` is in `selected_vars` — `mode == "coords"` writes only `WEATHER_COORDS` (a bare lat/lon shouldn't pin a display name; let `nearest_area` auto-detect, with the existing numeric-guard fallback in the script).
 
 ### 9. Print recap
 
