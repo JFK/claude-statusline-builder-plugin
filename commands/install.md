@@ -81,31 +81,41 @@ Then use the `AskUserQuestion` tool with:
 - Question body: `wttr.in IP-detected: "${wttr_ip_loc:-unavailable}". This may be wrong on WSL2/VPN/cloud-shell — the egress IP often resolves to a datacenter city, not where you actually are. Pick a fixed location if the detected one is wrong.`
 - Options:
   - `Use IP auto-detect` — description: `Keep WEATHER_COORDS empty; wttr.in picks the city from your egress IP on every fetch.`
-  - `Enter city name` — description: `e.g. "San Francisco", "Berlin", "Tokyo". Writes WEATHER_COORDS to the config.`
+  - `Enter city name` — description: `e.g. "San Francisco", "Berlin", "Tokyo". Writes WEATHER_COORDS *and* WEATHER_LOCATION_LABEL (so the 📍 prefix shows the same name you typed, not wttr's nearest_area subdivision).`
   - `Enter coordinates` — description: `e.g. "37.7749,-122.4194". Most precise; always resolves the same place.`
   - `Skip` — description: `Leave the config untouched. You can edit ~/.claude/statusline-config.sh later or rerun install.`
 - `multiSelect: false`
 
 If the user picks "Enter city name" or "Enter coordinates", ask a second plain follow-up question for the value. Validate the reply — **reject any string containing `"`, `` ` ``, `\`, `$`, or newline** (shell-escape risk when we write to a sourced config file). If the user's reply is empty or invalid, fall back to "Skip" and tell them why. Coordinates should match `^-?[0-9]+(\.[0-9]+)?,-?[0-9]+(\.[0-9]+)?$` roughly; city names should be printable ASCII plus spaces, periods, hyphens, and apostrophes.
 
-If a non-empty, valid value was collected, write it into `~/.claude/statusline-config.sh`:
+If a non-empty, valid value was collected, write it into `~/.claude/statusline-config.sh`. Use a small helper to upsert any `WEATHER_*` variable so the same logic handles both `WEATHER_COORDS` and (for city-name mode) `WEATHER_LOCATION_LABEL`:
 
 ```bash
 value="<validated user input — NO shell-metachars>"
 cfg="$HOME/.claude/statusline-config.sh"
-tmp=$(mktemp)
-if grep -qE '^[[:space:]]*export WEATHER_COORDS=' "$cfg"; then
-  # Already uncommented — confirm overwrite with the user before replacing.
-  sed -E "s|^([[:space:]]*export WEATHER_COORDS=).*|\1\"${value}\"|" "$cfg" > "$tmp" && mv "$tmp" "$cfg"
-elif grep -qE '^[[:space:]]*#[[:space:]]*export WEATHER_COORDS=' "$cfg"; then
-  # Uncomment the template line and set the value.
-  sed -E "s|^[[:space:]]*#[[:space:]]*export WEATHER_COORDS=.*|export WEATHER_COORDS=\"${value}\"|" "$cfg" > "$tmp" && mv "$tmp" "$cfg"
-else
-  printf '\nexport WEATHER_COORDS="%s"\n' "$value" >> "$cfg"
+
+upsert_weather() {
+  local var=$1 val=$2 tmp
+  tmp=$(mktemp)
+  if grep -qE "^[[:space:]]*export ${var}=" "$cfg"; then
+    sed -E "s|^([[:space:]]*export ${var}=).*|\\1\"${val}\"|" "$cfg" > "$tmp" && mv "$tmp" "$cfg"
+  elif grep -qE "^[[:space:]]*#[[:space:]]*export ${var}=" "$cfg"; then
+    sed -E "s|^[[:space:]]*#[[:space:]]*export ${var}=.*|export ${var}=\"${val}\"|" "$cfg" > "$tmp" && mv "$tmp" "$cfg"
+  else
+    printf '\nexport %s="%s"\n' "$var" "$val" >> "$cfg"
+  fi
+}
+
+upsert_weather WEATHER_COORDS "$value"
+# City-name mode only: also pin the display label, since wttr.in's
+# nearest_area can resolve a city query to a smaller subdivision
+# (e.g. "Kumamoto" → "Matsuai") which the 📍 prefix would otherwise show.
+if [ "$mode" = "city" ]; then
+  upsert_weather WEATHER_LOCATION_LABEL "$value"
 fi
 ```
 
-If the config already had an active (uncommented) `WEATHER_COORDS` with a non-empty value, show the existing value and confirm overwrite before running the `sed` above.
+If the config already had an active (uncommented) `WEATHER_COORDS` with a non-empty value, show the existing value and confirm overwrite before running the upsert above. The same confirmation applies to `WEATHER_LOCATION_LABEL` when city-name mode is selected.
 
 ### 9. Print recap
 
@@ -116,7 +126,8 @@ Installed claude-statusline-builder.
   • Script:   ~/.claude/statusline-command.sh
   • Config:   ~/.claude/statusline-config.sh   (commented template — edit to customize)
   • Location: <one of the following>
-               - Fixed: WEATHER_COORDS="<value>"
+               - Fixed (city): WEATHER_COORDS="<value>" + WEATHER_LOCATION_LABEL="<value>"
+               - Fixed (coords): WEATHER_COORDS="<value>"
                - Auto-detect via wttr.in (detected as "<wttr_ip_loc>")
                - Skipped (config untouched)
   • Backups:  ~/.claude/backups/

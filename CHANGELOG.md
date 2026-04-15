@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- **`/install` city-name prompt now also pins the display label.** When the
+  user picks "Enter city name" and types e.g. `Kumamoto`, the install flow
+  now writes both `WEATHER_COORDS="Kumamoto"` and
+  `WEATHER_LOCATION_LABEL="Kumamoto"`. Previously only `WEATHER_COORDS` was
+  set, and wttr.in's `nearest_area` could resolve the query to a smaller
+  subdivision (e.g. `Matsuai`) which the 📍 prefix would then display.
+  Coordinates mode and auto-detect mode are unchanged. (#24)
+
 ## [v0.5.0](https://github.com/JFK/claude-statusline-builder-plugin/releases/tag/v0.5.0) — 2026-04-15
 
 ### Added
