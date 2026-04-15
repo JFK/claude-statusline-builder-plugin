@@ -154,7 +154,8 @@ get_active_weather_value() {
 PSEUDOCODE — do not run as bash. The harness performs each step in turn.
 
   for var in selected_vars:                      # WEATHER_COORDS, +WEATHER_LOCATION_LABEL if mode=city
-    if has_active_weather_export(var) and get_active_weather_value(var) != value:
+    existing_value = get_active_weather_value(var)
+    if has_active_weather_export(var) and existing_value != value:
       msg = "Overwrite " + var
       if existing_value is non-empty:
         msg += " (currently \"" + existing_value + "\")"
